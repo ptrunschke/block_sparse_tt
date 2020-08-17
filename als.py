@@ -9,9 +9,14 @@ class BlockSparseTT(object):
         _components : list of ndarrays of order 3
             The list of component tensors for the TTTensor.
         _blocks : list of list of triples
-            For the k-th component tensor _blocks[k] contains the list of its blocks of non-zero values.
-            Each block is represented by a triple of integers and slices.
-            To obtain the block This triple the slice in the component tensor.
+            For the k-th component tensor _blocks[k] contains the list of its blocks of non-zero values:
+                _blocks[k] --- list of non-zero blocks in the k-th component tensor
+            Each block is represented by a triple of integers and slices:
+                block = (slice(0,3), slice(0,4), slice(1,5))
+                componentTensor[block] == componentTensor[0:3, 0:4, 1:5]
+            To obtain the block this triple the slice in the component tensor:
+                _blocks[k][l] --- The l-th non-zero block for the k-th component tensor.
+                                  The coordinates are given by _components[k][_blocks[k][l]].
 
         NOTE: Later we can remove _components and augment each triple in _blocks by an array that contains the data in this block.
         """
@@ -20,8 +25,8 @@ class BlockSparseTT(object):
         assert all(cmp1.shape[2] == cmp2.shape[0] for cmp1,cmp2 in zip(_components[:-1], _components[1:]))
         assert _components[-1].shape[2] == 1
         self.components = _components
-        assert isinstance(_blocks, list) and len(_blocks) == self.order
 
+        assert isinstance(_blocks, list) and len(_blocks) == self.order
         assert all(isinstance(compBlocks, list) for compBlocks in _blocks)
         assert all(isinstance(block, tuple) and len(block) == 3 for compBlocks in _blocks for block in compBlocks)
         for compBlocks in _blocks:
@@ -103,6 +108,7 @@ class BlockSparseTT(object):
 
         self.blocks = _blocks
 
+        # leftBlocks and rightBlocks contain the slices of non-zero blocks in the matrifications needed for the core move.
         leftBlocks = []
         for d in range(self.order):
             #NOTE: When the left blocks are used the core (=components[d]) is always reshaped into shape (core.shape[0], -1).
@@ -388,41 +394,65 @@ class __block(object):
 block = __block()
 
 
-# def random_polynomial(_univariateDegrees, _maxTotalDegree):
-#     assert _maxTotalDegree >= max(_univariateDegrees)
-#     blockSlices = []
-#     d = 0
-#     blockSlices.append([slice(k,k+1) for k in range(_univariateDegrees[d])])
-#     d = 1
-#     for k in range(len(blockSlices[-1])):
-#         for l in range(_univariateDegrees[d]):
-#             # left block: slice_size(blockSlices[-1][k]) of degree k
-#             # central block: degree l
-#             now we have to think about how many polynomials we allow. This has to do with the rank.
-#             for every polynomial of degree k
+def random_polynomial(_univariateDegrees, _maxTotalDegree):
+    assert _maxTotalDegree >= max(_univariateDegrees)  #TODO: This is only required due to unnecessary restrictions in BlockSparseTT.
 
-bstt = BlockSparseTT.random([5,5,5,5], [5,8,5], [
-        [block[0,l,l] for l in range(5)],
-        [block[0,0,0]] +  # given only one polynomial P(x) of degree 0 you can also only create one polynomial Q(x,y) = P(x) of degree zero.
-            [block[k,l,1+2*(k+l-1):1+2*(k+l)] for k in range(5) for l in range(5) if 0 < k+l < 4] +
-            [block[k,l,1+2*(4-1)] for k in range(5) for l in range(5) if k+l == 4],
-        [block[0,l,l] for l in range(5)] +
-            [block[1+2*(k-1):1+2*k, l, k+l] for k in range(1,4) for l in range(5) if k+l < 5] +
-            [block[1+2*(4-1), l, 4+l] for l in range(5) if 4+l < 5],
-        [block[k,l,0] for k in range(5) for l in range(5) if k+l < 5]
-    ])
+    # Consider a tensor with dimensions [3,3,3,3] and a total degree of 2.
+    # The chosen univariate degree 2 (<-> dimension 3) is the lowest degree that allows for the combination
+    # of more that two different univariate polynomials to obtain a multivariate polynomial of degree 2.
+    # (A polynomial of degree 2  can be created either by P1(x)*P1(y) or by P0(x)*P2(y). For degree 0 and 1 you have less options.)
+    # Order 4 is the smallest order that allows for a TT-rank larger than 3.
+    # The first component tensor has the non-zero blocks:
+    #     (0,0,0)
+    #     (0,1,1)
+    #     (0,2,2)
+    # The second component has the blocks:
+    #     (0,0,0)
+    #     (0,1,1)
+    #     (0,2,2)
+    #     (1,0,1)
+    #     (1,1,2)
+    #     (2,0,2)
+    # And so on...
+    # The polynomials that are allowed by this scheme are:
+    #     P0(x)*P0(y)*P0(z)*P0(w) with coefficient C0000 = C0[0,0,0]*C1[0,0,0]*C2[0,0,0]*C3[0,0,0]
+    #     P1(x)*P0(y)*P0(z)*P0(w) with coefficient C1000 = C0[0,1,1]*C1[1,0,1]*C2[1,0,1]*C3[1,0,0]
+    #     P0(x)*P1(y)*P0(z)*P0(w) with coefficient C0100 = C0[0,0,0]*C1[0,1,1]*C2[1,0,1]*C3[1,0,0]
+    #     ...
+    #     P2(x)*P0(y)*P0(z)*P0(w) with coefficient C2000 = C0[0,2,2]*C1[2,0,2]*C2[2,0,2]*C3[2,0,0]
+    #     ...
+    #     P1(x)*P1(y)*P0(z)*P0(w) with coefficient C2000 = C0[0,1,1]*C1[1,1,2]*C2[2,0,2]*C3[2,0,0]
+    #     ...
+    # From the table above it is easy to see that each polynomial has its own coefficient.
+    # Starting with a polynomial of degree zero the components C{k}[0,0,0] are chosen arbitrarily to satisfy the above equation.
+    # Then the C{k}[0,1,1] and C{k}[1,0,1] are chosen for polynomials of degree 1. For polynomials of degree 2 again new non-zero 
+    # components can be chosen and so on.
+    # Each coefficient C{i}{j}{k}{l} can be obtained since in every product at least one new coefficient appears.
+    # All blocks that are zero are only necessary to represent polynomials of higher degree.
+    #NOTE: This shows that in this specific setting a rank of 3 is sufficient to obtain all polynomials of degree 2
+    #      and it hints to the fact that a polynomial of degree P can bre represented by a TT of rank P+1.
 
-# bstt.assume_corePosition(bstt.order-1)
-# while bstt.corePosition > 0:
-#     print(f"move_core: {bstt.corePosition} --> {bstt.corePosition-1}")
-#     bstt.move_core('left')
-# while bstt.corePosition < bstt.order-1:
-#     print(f"move_core: {bstt.corePosition} --> {bstt.corePosition+1}")
-#     bstt.move_core('right')
-# exit()
+    dimensions = [deg+1 for deg in _univariateDegrees]
+    ranks = []
+    blocks = []
+    blocks.append([block[0,l,l] for l in range(dimensions[0]) if l <= _maxTotalDegree])
+    ranks.append(min(dimensions[0]-1, _maxTotalDegree)+1)
+    for m in range(1, len(_univariateDegrees)-1):
+        blocks.append([block[k,l,k+l] for k in range(ranks[-1]) for l in range(dimensions[m]) if k+l <= _maxTotalDegree])
+        ranks.append(min(ranks[-1]-1 + dimensions[m]-1, _maxTotalDegree)+1)
+    blocks.append([block[k,l,0] for k in range(ranks[-1]) for l in range(dimensions[-1]) if k+l <= _maxTotalDegree])
+    return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
-N = int(1e3)  # number of samples
+# ==========
+#  TRAINING
+# ==========
+
+# bstt = random_polynomial([20,20,20,20], 40)
+# bstt = random_polynomial([15,15,15,15], 15)
+bstt = random_polynomial([7,7,7,7], 7)
+
+N = int(1e5)  # number of samples
 f = lambda xs: 1/(1+25*np.linalg.norm(xs, axis=1)**2)
 
 M = bstt.order
@@ -440,30 +470,17 @@ solver = ALS(bstt, measures, values)
 solver.run()
 
 
+# =========
+#  TESTING
+# =========
 
+N = int(1e3)  # number of test samples
+samples = 2*np.random.rand(N,M)-1
+factors = np.sqrt(2*np.arange(d)+1)
+measures = legval(samples, np.diag(factors)).T
+assert measures.shape == (M,N,d)
+values = f(samples)
+assert values.shape == (N,)
 
-
-
-
-# Consider the SVD of the matrix
-#    ┌    ╶┐
-#    │ A C │
-#    │ B D │
-#    └     ┘
-# Then a SVD-like decomposition of this matrix is given by
-#                    ┌            ╶┐ ┌        ╶┐
-#                    │ Sᴬ          │ │ Vtᴬ     │
-#    ┌            ╶┐ │    Sᴮ       │ │ Vtᴮ     │
-#    │ Uᴬ    Uᶜ    │ │       Sᶜ    │ │     Vtᶜ │
-#    │    Uᴮ    Uᴰ │ │          Sᴰ │ │     Vtᴰ │
-#    └             ┘ └             ┘ └         ┘
-# with A = UᴬSᴬVtᴬ, B = UᴮSᴮVtᴮ, ... the SVDs of A, B, ...
-# It is easy to see that the middle factor matrix is a diagonal matrix
-# and that the left and right factor matrices are orthogonal.
-# As an example consider
-#    ┌        ╶┐                     ┌                        ╶┐
-#    │ Vtᴬ     │                     │ VtᴬVᴬ                   │
-#    │ Vtᴮ     │ ┌            ╶┐     │       VtᴮVᴮ             │
-#    │     Vtᶜ │ │ Vᴬ Vᴮ       │  =  │             VtᶜVᶜ       │  =  I
-#    │     Vtᴰ │ │       Vᶜ Vᴰ │     │                   VtᴰVᴰ │
-#    └         ┘ └             ┘     └                         ┘
+tester = ALS(solver.bstt, measures, values)
+print(f"Test set residual: {tester.residual():.2e}")
