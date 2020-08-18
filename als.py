@@ -444,6 +444,31 @@ def random_polynomial(_univariateDegrees, _maxTotalDegree):
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
+def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):
+    dimensions = [dim+1 for dim in _univariateDegrees]
+    nnslice = np.concatenate([0], np.cumsum(np.concatenate([1], _nnranks)))
+    nnslice = [slice(s1, s2) for s1,s2 in zip(nnslice[:-1], nnslice[1:])]
+    dimslice = [slice(0, dim) for dim in dimensions]
+
+    ranks = []
+    blocks = []
+    currentMaxNeighbors = 0
+    maxNeighbors = len(_nnranks)
+    for m in range(len(_dimensions)-1):
+        blocks_m = []
+        blocks_m.append(block[nnslice[0], 0, nnslice[0]])
+        for n in range(min(currenMaxNeighbors, maxNeighbors-1)):
+            blocks_m.append(block[nnslice[n], dimslice[m], nnslice[n+1]])
+        if currenMaxNeighbors == maxNeighbors:
+            blocks_m.append(block[nnslice[-1], 0, nnslice[-1]])
+        ranks.append(max(blk[2].stop for blk in blocks_m))
+        blocks.append(blocks_m)
+        currenMaxNeighbors = min(currenMaxNeighbors+1, len(_nnranks))
+    blocks.append([block[nnslice[-1],0,0], block[nnslice[-2],:,0]])
+    return BlockSparseTT.random(dimensions, ranks, blocks)
+
+
+
 # ==========
 #  TRAINING
 # ==========
