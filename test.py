@@ -97,6 +97,10 @@ def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):
 #  TRAINING
 # ==========
 
+#TODO: Nandos affine Funktionen sollten auch gehen.
+#      Im BlockSparseTT ist der erste Core einfach ein voller Block.
+#      Nur den ALS muss man evtl anpassen, wenn die Dimension des ersten Modus zu groß wird.
+
 # bstt = random_polynomial([20,20,20,20], 40)
 # bstt = random_polynomial([15,15,15,15], 15)
 bstt = random_polynomial([7,7,7,7], 7)
