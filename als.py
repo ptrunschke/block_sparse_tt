@@ -59,7 +59,7 @@ class ALS(object):
         Op = np.concatenate(Op_blocks, axis=1)
         Param = np.concatenate(Param_blocks)
         Res = np.linalg.solve(Op.T @ Op, Op.T @ self.values)
-        core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).to_ndarray()
+        core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
 
     def run(self):
         prev_residual = self.residual()

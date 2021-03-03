@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import block_diag
+from scipy.sparse import block_diag, diags
 
 
 class Block(tuple):
@@ -60,52 +60,100 @@ class BlockSparseTensor(object):
         assert all(shapeBlock.contains(block) for block in self.blocks)
         self.shape = _shape
 
-    # TODO: I think this method is unnecessary when assert_stable_svd() is used.
-    # def is_holey(self):
-    #     """
-    #     Checks if there are slices in the matrix that have to be zero by the block structure.
-    #     These holes mean that there can be no SVD that preserves the sparsity structure.
-    #     """
-    #     #NOTE: This can be done more efficiently.
-    #     #NOTE: The condition that the middle slices are not holey may restrict TT-Blocks unnecessarily.
-    #     masks = [np.full((dim,), False, dtype=bool) for dim in self.shape]
-    #     for block in self.blocks:
-    #         for mask,slc in zip(masks, block):
-    #             mask[slc] = True
-    #     return any(not np.all(mask) for mask in masks)
-
-    def assert_stable_svd(self, _mode):
+    def svd(self, _mode):
         """
-        Check if an SVD along the _mode-th mode will retain the the block structure.
+        Perform an SVD along the `_mode`-th mode while retaining the the block structure.
 
-        For this it is important that there are no slices in the matrix that have to be zero by the block structure.
-        These holes mean that there can be no SVD that preserves the sparsity structure.
-        The SVD will be considered for a matricisation of the tensor.
         The considered matricisation has `_mode` as its rows and all other modes as its columns.
-
-        Parameters
-        ----------
-        _mode: non-negative int
-            The mode that is chosen as one side of the matricisation.
-
-        Returns
-        -------
-        tuple or None
-            Returns None if the SVD will retain the block structure.
-            Otherwise return the first `_mode`-slice that will loose its structure
-            and the size of the non-zero part of the sliced matrification.
-
+        If `U,S,Vt = X.svd(_mode)`, then `X == (U @ S) @[_mode] Vt` where `@[_mode]` is the contraction with the `_mode`-th mode ov Vt.
         """
-        modeSlices = sorted({(block[_mode].start, block[_mode].stop) for block in self.blocks})  #NOTE: slices are not hashable.
-        for j in range(len(modeSlices)-1):
-            assert modeSlices[j][1] == modeSlices[j+1][0], f"Hole found in mode {_mode}: ({modeSlices[j][1]}:{modeSlices[j+1][0]})"
-        for slc in modeSlices:
+        # SVD for _mode == 0
+        # ==================
+        # Consider a block sparse tensor X of shape (l,e,r).
+        # We want to compute an SVD-like decomposition X = U @ S @[0] Vt such that the sparsity pattern is preserved.
+        #
+        # This means that:
+        #     - U is a block-diagonal, orthogonal matrix.
+        #     - The contraction U @[0] X does not modifying the sparsity structure
+        #     - S is a diagonal matrix
+        #     - The 0-(1,2)-matrification of Vt is orthogonal.
+        #     - Vt is a block sparse tensor with the same sparsity structure as X.
+        #       Equivalently, the 0-(1,2)-matrification of Vt has the same sparsity structure as the matrification of X.
+        #
+        # Assume that X contains non-zero blocks at the 3D-slices ((:a), scl_11[k], slc_12[k]) for k=1,...,K 
+        # and ((a:), slc_21[l], scl_22[l]) for l=1,...,L. After a 1-(2,3)-matricisation we obtain a matrix 
+        #    ┌       ┐
+        #    │ X[:a] │
+        #    │ X[a:] │
+        #    └       ┘
+        # of shape (l, e*r) and the slices take the form ((:a), scl_1[k]) and ((a:), slc_2[l]) where slc_1 and scl_2
+        # are not proper slices but index arrays that select the non-zero columns of this matricisation.
+        # Let X[:a] = UₐSₐVtₐ and m[a:] = UᵃSᵃVtᵃ. Then such a decomposition is given by
+        #    ┌       ┐ ┌       ┐ ┌     ┐
+        #    │ Uₐ    │ │ Sₐ    │ │ Vtₐ │
+        #    │    Uᵃ │ │    Sᵃ │ │ Vtᵃ │
+        #    └       ┘ └       ┘ └     ┘
+        # It is easy to see that X = U @ S @[0] Vt and that U, S and Vt satisfy the first four properties.
+        # To see this a permutation matrix Pₐ that sorts the the columns of X[:a] such that X[:a] Pₐ = [ 0 Y ], perform 
+        # the SVD Y = Uʸ Sʸ Vtʸ and observe that X[:a] = Uʸ Sʸ [ 0 Vtʸ ] Ptₐ. Since Uʸ Sʸ is block-diagonal it preserves
+        # the sparisity structure of [ 0 Vtʸ ] Ptₐ which has to be the same as the one of X[:a]. Since [ 0 Vtʸ ] Ptₐ is 
+        # orthogonal we know that [ 0 Vtʸ ] Ptₐ = Vtₐ by the uniqueness of the SVD.
+        # A similar argument holds true for X[a:] which proves the equivalent formulation of the fourth property in 
+        # terms of the matrification of X.
+        #
+        # Note that this prove is constructive and provides a performant and numerically stable way to compute the SVD.
+        #TODO: This can be done more efficiently.
+
+        mSlices = sorted({(block[_mode].start, block[_mode].stop) for block in self.blocks})  #NOTE: slices are not hashable.
+
+        # Check if the block structure can be retained.
+        # It is necessary that there are no slices in the matricisation that are necessarily zero due to the block structure.
+        for j in range(len(mSlices)-1):
+            assert mSlices[j][1] == mSlices[j+1][0], f"Hole found in mode {_mode}: ({mSlices[j][1]}:{mSlices[j+1][0]})"
+        # After matricisation the SVD is performed for each row-slice individually.
+        # To ensure that the block structure is maintained the non-zero columns must outnumber the non-zero rows.
+        for slc in mSlices:
             rows = slc[1]-slc[0]
             cols = sum(Block(blk).size for blk in self.blocks if blk[_mode].start == slc[0])     #NOTE: For coherent blocks blk[0].start == slc[0] implies equality of the slice.
             cols /= rows  # cols is the number of all non-zero columns of the `slc`-slice of the matricisation.
             assert rows <= cols, f"The {_mode}-matrification has too few non-zero columns (shape: {(rows, cols)}) for slice ({slc[0]}:{slc[1]})."  # of components[{m}][{reason[0].start}:{reason[0].stop}] has too few non-zero columns (rows: {reason[1][0]}, columns: {reason[1][1]})"
 
-    def to_ndarray(self):
+        def notMode(_tuple):
+            return _tuple[:_mode] + _tuple[_mode+1:]
+
+        # Store the blocks of the `_mode`-matrification (interpreted as a BlockSparseTensor).
+        indices = np.arange(np.product(notMode(self.shape))).reshape(notMode(self.shape))
+        mBlocks = []
+        for slc in mSlices:
+            idcs = [indices[notMode(blk)].reshape(-1) for blk in self.blocks if blk[_mode].start == slc[0]]
+            idcs = np.sort(np.concatenate(idcs))
+            mBlocks.append((slice(*slc), idcs))
+
+        matricisation = np.moveaxis(self.toarray(), _mode, 0)
+        mShape = matricisation.shape
+        matricisation = matricisation.reshape(self.shape[_mode], -1)
+
+        # Compute the row-block-wise SVD.
+        U_blocks, S_blocks, Vt_blocks = [], [], []
+        for block in mBlocks:
+            u,s,vt = np.linalg.svd(matricisation[block], full_matrices=False)
+            assert u.shape[0] == u.shape[1]  #TODO: Handle the case that a singular value is zero.
+            U_blocks.append(u)
+            S_blocks.append(s)
+            Vt_blocks.append(vt)
+        U = block_diag(U_blocks, format='bsr')
+        S = diags([np.concatenate(S_blocks)], [0], format='dia')
+        Vt = np.zeros(matricisation.shape)
+        for block, Vt_block in zip(mBlocks, Vt_blocks):
+            Vt[block] = Vt_block
+
+        # Reshape Vt back into the original tensor shape.
+        Vt = np.moveaxis(Vt.reshape(mShape), 0, _mode)
+        #TODO: Is this equivalent to Vt = BlockSparseTensor(data, self.blocks, self.shape).toarray()?
+
+        return U, S, Vt
+
+    def toarray(self):
         ret = np.zeros(self.shape)
         a = 0
         for block in self.blocks:
@@ -113,6 +161,15 @@ class BlockSparseTensor(object):
             ret[block].reshape(-1)[:] = self.data[a:o]
             a = o
         return ret
+
+    @classmethod
+    def fromarray(cls, _array, _blocks):
+        test = np.array(_array, copy=True)
+        for block in _blocks:
+            test[block] = 0
+        assert np.all(test == 0), f"Block structure and sparsity pattern do not match."
+        data = np.concatenate([_array[block].reshape(-1) for block in _blocks])
+        return BlockSparseTensor(data, _blocks, _array.shape)
 
 
 class BlockSparseTT(object):
@@ -139,43 +196,11 @@ class BlockSparseTT(object):
         self.components = _components
 
         assert isinstance(_blocks, list) and len(_blocks) == self.order
-        for m, (comp, compBlocks) in enumerate(zip(self.components, _blocks)):
-            data = np.concatenate([comp[block].reshape(-1) for block in compBlocks])
-            comp = BlockSparseTensor(data, compBlocks, comp.shape)
-            comp.assert_stable_svd(0)
-            comp.assert_stable_svd(2)
 
-        #TODO: I do not think that this is relevant. Matrix-matrix multiplication works block-wise --- independet of how the blocks are distributed.
-        # leftSlices = [ sorted({(block[0].start, block[0].stop) for block in cblocks}) for cblocks in _blocks ]   #NOTE: slices are not hashable.
-        # rightSlices = [ sorted({(block[2].start, block[2].stop) for block in cblocks}) for cblocks in _blocks ]  #NOTE: slices are not hashable.
-        # #NOTE: Check that for every two neighboring components every block in the left component has a corresponding block in the right component.
-        # #      Otherwise, if for example the right component would be dense, the left component must be dense as well after a core move to the left.
-        # assert all(rightSlices[m] == leftSlices[m+1] for m in range(self.order-1))
+        for m, (comp, compBlocks) in enumerate(zip(self.components, _blocks)):
+            BlockSparseTensor.fromarray(comp, compBlocks)
 
         self.blocks = _blocks
-
-        # TODO: Gib BlockSparseTensor diese Methode und der Klasse einfach auch eine svd-methode!
-        def dense_slices(_blocks, _shape, _mode):
-            """
-            For an SVD with `_mode == 0` the tensor is reshaped into shape (tensor.shape[0], -1).
-            dense_slices()[k] is used to select the columns of this matrification for the k-th slice in the rows.
-            Similarly, for an SVD with `_mode == 2` the tensor is reshaped into shape (-1, tensor.shape[2]).
-            Then dense_slices()[k] is used to select the rows of this matrification for the k-th slice in the columns.
-            """
-            rowSlices = sorted({(block[_mode].start, block[_mode].stop) for block in _blocks})  #NOTE: slices are not hashable.
-            def notMode(_tuple): return _tuple[:_mode] + _tuple[_mode+1:]
-            indices = np.arange(np.product(notMode(_shape))).reshape(notMode(_shape))
-            ret = []
-            for rowSlc in rowSlices:
-                colIndices = [indices[notMode(blk)].reshape(-1) for blk in _blocks if blk[_mode].start == rowSlc[0]]
-                colIndices = np.sort(np.concatenate(colIndices))
-                ret.append((slice(*rowSlc), colIndices))
-            return ret
-
-        # leftBlocks and rightBlocks contain the slices of non-zero blocks in the matrifications needed for the core move.
-        self.leftBlocks = [dense_slices(blocks, comp.shape, 0) for blocks, comp in zip(self.blocks, self.components)]
-        self.rightBlocks = [[tpl[::-1] for tpl in dense_slices(blocks, comp.shape, 2)] for blocks, comp in zip(self.blocks, self.components)]
-        #TODO: Remove the unnecessary reordering in self.rightBlocks!
 
         self.__corePosition = None
         self.verify()
@@ -211,110 +236,28 @@ class BlockSparseTT(object):
     def move_core(self, _direction):
         assert isinstance(self.corePosition, int)
         assert _direction in ['left', 'right']
-        # SVD for the LEFT move
-        # =====================
-        # Consider the component tensor M of shape (r1,d,r2) and consider that this tensor contains non-zero blocks
-        # at the 3D-slices ((:a), scl_11[k], slc_12[k]) for k=1,...,K and ((a:), slc_21[l], scl_22[l]) for l=1,...,L.
-        # After a 1-matricisation we obtain a matrix 
-        #    ┌       ┐
-        #    │ M[:a] │
-        #    │ M[a:] │
-        #    └       ┘
-        # of shape (r1, d*r2) and the slices take the form ((:a), scl_1[k]) and ((a:), slc_2[l]) where slc_1 and scl_2
-        # just select certain columns of this matricisation.
-        # Our goal is to obtain an SVD-like decomposition of this matrix M = U S Vt such that the sparsity pattern is preserved.
-        # By this we mean that U is a block-diagonal matrix, so that it can be multiplied to the component tensor to the
-        # left without modifying its sparsity structure, that S is a diagonal matrix (as usual) and that Vt only has 
-        # non-zero entries in the blocks ((:a), scl_1[k]) and ((a:), slc_2[l]).
-        # Let M[:a] = UₐSₐVtₐ and M[a:] = UᵃSᵃVtᵃ. Then such a decomposition is given by
-        #    ┌       ┐ ┌       ┐ ┌     ┐
-        #    │ Uₐ    │ │ Sₐ    │ │ Vtₐ │
-        #    │    Uᵃ │ │    Sᵃ │ │ Vtᵃ │
-        #    └       ┘ └       ┘ └     ┘
-        # To see that this preserves tha sparsity pattern in Vtₐ and Vtᵃ we focus on Vtₐ.
-        # Define a permutation matrix Pₐ that sorts the the columns of M[:a] such that M[:a] Pₐ = [ 0 X ], perform an SVD
-        # on X = Uˣ Sˣ Vtˣ and observe that M[:a] = Uˣ Sˣ [ 0 Vtˣ ] Ptₐ.
-        # NOTE: This not only proves the claim but also shows a more performant way to compute the SVD.
 
-        #TODO: Das gilt allerdings nur für exakte arithmetik.
-        # Sei M ein Vektor der Dimension 2 und betrachte folgendes Beispiel in Computerarithmetik
-        #                   ┌         ┐ 
-        #    ┌       ┐      │ 0   1   │ ┌     ┐ 
-        #    │       │  ==  │ U₁₁ U₁₂ │ │ 1   │ 
-        #    │ M M+ε │      │ U₂₁ U₂₂ │ │   ε │ Vt
-        #    └       ┘      └         ┘ └     ┘ 
-        # Diese Beispiel zeigt, dass die oben vorgestellte methode nicht nur effizienter ist, sonder auch numerisch stabiler.
         if _direction == 'left':
             assert 0 < self.corePosition
-            oldCore = self.components[self.corePosition]
-            newCore = self.components[self.corePosition-1]
-            # test = np.einsum('ler,rds', newCore, oldCore)
 
-            oldCore_shape = oldCore.shape
-            oldCore = oldCore.reshape(oldCore_shape[0], -1)
+            CORE = BlockSparseTensor.fromarray(self.components[self.corePosition], self.blocks[self.corePosition])
+            U, S, Vt = CORE.svd(0)
 
-            US_blocks, Vt_blocks = [], []
-            for leftBlock in self.leftBlocks[self.corePosition]:
-                X = oldCore[leftBlock]
-                u,s,vt = np.linalg.svd(X, full_matrices=False)
-                assert u.shape[0] == u.shape[1]  #TODO: Handle the case that a singular value is zero.
-                US_blocks.append(u*s)
-                Vt_blocks.append(vt)
+            nextCore = self.components[self.corePosition-1]
+            self.components[self.corePosition-1] = (nextCore.reshape(-1, nextCore.shape[2]) @ U @ S).reshape(nextCore.shape)
+            self.components[self.corePosition] = Vt
 
-            US = block_diag(US_blocks, format='csc')
-            Vt = np.zeros(oldCore.shape)
-            for leftBlock, Vt_block in zip(self.leftBlocks[self.corePosition], Vt_blocks):
-                Vt[leftBlock] = Vt_block
-
-            oldCore = Vt.reshape(oldCore_shape)
-            newCore = (newCore.reshape(-1, newCore.shape[2]) @ US).reshape(newCore.shape)
-
-            #TODO: This is done in self.verify().
-            # oldCore_test = np.array(oldCore)
-            # for blk in self.blocks[self.corePosition]:
-            #     oldCore_test[blk] = 0
-            # assert np.allclose(oldCore_test, 0)
-
-            # assert np.allclose(test, np.einsum('ler,rds', newCore, oldCore))
-
-            self.components[self.corePosition-1] = newCore
-            self.components[self.corePosition] = oldCore
             self.__corePosition -= 1
         else:
             assert self.corePosition < self.order-1
-            oldCore = self.components[self.corePosition]
-            newCore = self.components[self.corePosition+1]
-            # test = np.einsum('ler,rds', oldCore, newCore)
 
-            oldCore_shape = oldCore.shape
-            oldCore = oldCore.reshape(-1, oldCore_shape[2])
+            CORE = BlockSparseTensor.fromarray(self.components[self.corePosition], self.blocks[self.corePosition])
+            U, S, Vt = CORE.svd(2)
 
-            U_blocks, SVt_blocks = [], []
-            for rightBlock in self.rightBlocks[self.corePosition]:
-                X = oldCore[rightBlock]
-                u,s,vt = np.linalg.svd(X, full_matrices=False)
-                assert vt.shape[0] == vt.shape[1]  #TODO: Handle the case that a singular value is zero.
-                U_blocks.append(u)
-                SVt_blocks.append(s[:,None]*vt)
+            nextCore = self.components[self.corePosition+1]
+            self.components[self.corePosition] = Vt
+            self.components[self.corePosition+1] = (S @ U.T @ nextCore.reshape(nextCore.shape[0], -1)).reshape(nextCore.shape)
 
-            U = np.zeros(oldCore.shape)
-            for rightBlock, U_block in zip(self.rightBlocks[self.corePosition], U_blocks):
-                U[rightBlock] = U_block
-            SVt = block_diag(SVt_blocks, format='csr')
-
-            oldCore = U.reshape(oldCore_shape)
-            newCore = (SVt @ newCore.reshape(newCore.shape[0], -1)).reshape(newCore.shape)
-
-            #TODO: This is done in self.verify().
-            # oldCore_test = np.array(oldCore)
-            # for blk in self.blocks[self.corePosition]:
-            #     oldCore_test[blk] = 0
-            # assert np.allclose(oldCore_test, 0)
-
-            # assert np.allclose(test, np.einsum('ler,rds', oldCore, newCore))
-
-            self.components[self.corePosition] = oldCore
-            self.components[self.corePosition+1] = newCore
             self.__corePosition += 1
         self.verify()
 
