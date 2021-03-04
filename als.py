@@ -24,11 +24,11 @@ class ALS(object):
     def move_core(self, _direction):
         self.bstt.move_core(_direction)
         if _direction == 'left':
-            print(f"move_core: {self.bstt.corePosition+1} --> {self.bstt.corePosition}")
+            # print(f"move_core: {self.bstt.corePosition+1} --> {self.bstt.corePosition}")
             self.leftStack.pop()
             self.rightStack.append(np.einsum('ler, ne, nr -> nl', self.bstt.components[self.bstt.corePosition+1], self.measurements[self.bstt.corePosition+1], self.rightStack[-1]))
         elif _direction == 'right':
-            print(f"move_core: {self.bstt.corePosition-1} --> {self.bstt.corePosition}")
+            # print(f"move_core: {self.bstt.corePosition-1} --> {self.bstt.corePosition}")
             self.rightStack.pop()
             self.leftStack.append(np.einsum('nl, ne, ler -> nr', self.leftStack[-1], self.measurements[self.bstt.corePosition-1], self.bstt.components[self.bstt.corePosition-1]))
         else:

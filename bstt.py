@@ -49,7 +49,7 @@ class BlockSparseTensor(object):
     def __init__(self, _data, _blocks, _shape):
         assert isinstance(_data, np.ndarray) and _data.ndim == 1
         self.data = _data
-        assert isinstance(_blocks, list)
+        assert isinstance(_blocks, (list, tuple))
         self.blocks = [Block(block) for block in _blocks]
         assert all(block.is_valid() for block in self.blocks) and sum(block.size for block in self.blocks) == self.data.size
         for i in range(len(self.blocks)):
@@ -263,6 +263,7 @@ class BlockSparseTT(object):
 
     @classmethod
     def random(cls, _dimensions, _ranks, _blocks):
+        assert len(_ranks)+1 == len(_dimensions)
         ranks = [1] + _ranks + [1]
         components = [np.zeros((leftRank, dimension, rightRank)) for leftRank, dimension, rightRank in zip(ranks[:-1], _dimensions, ranks[1:])]
         for comp, compBlocks in zip(components, _blocks):
