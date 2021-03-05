@@ -4,13 +4,14 @@ from bstt import Block, BlockSparseTensor
 
 
 class ALS(object):
-    def __init__(self, _bstt, _measurements, _values):
+    def __init__(self, _bstt, _measurements, _values, _verbosity=0):
         self.bstt = _bstt
         assert isinstance(_measurements, np.ndarray) and isinstance(_values, np.ndarray)
         assert len(_measurements) == self.bstt.order
         assert all(compMeas.shape == (len(_values), dim) for compMeas, dim in zip(_measurements, self.bstt.dimensions))
         self.measurements = _measurements
         self.values = _values
+        self.verbosity = _verbosity
         self.maxSweeps = 100
         self.targetResidual = 1e-8
         self.minDecrease = 1e-4
@@ -24,11 +25,11 @@ class ALS(object):
     def move_core(self, _direction):
         self.bstt.move_core(_direction)
         if _direction == 'left':
-            # print(f"move_core: {self.bstt.corePosition+1} --> {self.bstt.corePosition}")
+            if self.verbosity >= 2: print(f"move_core: {self.bstt.corePosition+1} --> {self.bstt.corePosition}")
             self.leftStack.pop()
             self.rightStack.append(np.einsum('ler, ne, nr -> nl', self.bstt.components[self.bstt.corePosition+1], self.measurements[self.bstt.corePosition+1], self.rightStack[-1]))
         elif _direction == 'right':
-            # print(f"move_core: {self.bstt.corePosition-1} --> {self.bstt.corePosition}")
+            if self.verbosity >= 2: print(f"move_core: {self.bstt.corePosition-1} --> {self.bstt.corePosition}")
             self.rightStack.pop()
             self.leftStack.append(np.einsum('nl, ne, ler -> nr', self.leftStack[-1], self.measurements[self.bstt.corePosition-1], self.bstt.components[self.bstt.corePosition-1]))
         else:
@@ -63,7 +64,7 @@ class ALS(object):
 
     def run(self):
         prev_residual = self.residual()
-        print(f"Initial residuum: {prev_residual:.2e}")
+        if self.verbosity >= 1: print(f"Initial residuum: {prev_residual:.2e}")
         for sweep in range(self.maxSweeps):
             while self.bstt.corePosition < self.bstt.order-1:
                 self.microstep()
@@ -73,20 +74,27 @@ class ALS(object):
                 self.move_core('left')
 
             residual = self.residual()
-            print(f"[{sweep}] Residuum: {residual:.2e}")
+            if self.verbosity >= 1: print(f"[{sweep}] Residuum: {residual:.2e}")
 
             if residual < self.targetResidual:
-                print(f"Terminating (targetResidual reached)")
-                print(f"Final residuum: {self.residual():.2e}")
+                if self.verbosity >= 1:
+                    print(f"Terminating (targetResidual reached)")
+                    print(f"Final residuum: {self.residual():.2e}")
                 return
 
-            assert residual <= prev_residual
+            if residual > prev_residual:
+                if self.verbosity >= 1:
+                    print(f"Terminating (residual increases)")
+                    print(f"Final residuum: {self.residual():.2e}")
+                return
+
             if (prev_residual - residual) < self.minDecrease*residual:
-                print(f"Terminating (minDecrease reached)")
-                print(f"Final residuum: {self.residual():.2e}")
+                if self.verbosity >= 1:
+                    print(f"Terminating (minDecrease reached)")
+                    print(f"Final residuum: {self.residual():.2e}")
                 return
 
             prev_residual = residual
 
-        print(f"Terminating (maxSweeps reached)")
-        print(f"Final residuum: {self.residual():.2e}")
+        if self.verbosity >= 1: print(f"Terminating (maxSweeps reached)")
+        if self.verbosity >= 1: print(f"Final residuum: {self.residual():.2e}")
