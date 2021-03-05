@@ -26,15 +26,28 @@ def random_polynomial(_univariateDegrees, _maxTotalDegree):
     # Degree 2 is the lowest degree that allows for combination of multiple modes.
     # (A polynomial of degree 2 can be created either by P1(x)*P1(y) or by P0(x)*P2(y). For degree 0 you only have P0(x)*P0(y) and for degree 1 you only have P0(x)*P1(y).)
     # Order 4 is the smallest order that allows for a TT-rank larger than 3.
+    order = len(_univariateDegrees)
     dimensions = [deg+1 for deg in _univariateDegrees]
-    ranks = []
-    blocks = []
-    blocks.append([block[0,l,l] for l in range(dimensions[0]) if l <= _maxTotalDegree])
-    ranks.append(min(dimensions[0]-1, _maxTotalDegree)+1)
-    for m in range(1, len(_univariateDegrees)-1):
+    ranks = [dimensions[0]]
+    blocks = [[block[0,l,l] for l in range(dimensions[0]) if l <= _maxTotalDegree]]
+    for m in range(1, order-1):
+        # blocks.append([block[l,e,r] for l in range(slices[m]) for e in range(dimensions[m]) for r in range(slices[m+1]) if e+l <= _maxTotalDegree])
         blocks.append([block[k,l,k+l] for k in range(ranks[-1]) for l in range(dimensions[m]) if k+l <= _maxTotalDegree])
         ranks.append(min(ranks[-1]-1 + dimensions[m]-1, _maxTotalDegree)+1)
     blocks.append([block[k,l,0] for k in range(ranks[-1]) for l in range(dimensions[-1]) if k+l <= _maxTotalDegree])
+    return BlockSparseTT.random(dimensions, ranks, blocks)
+
+
+def random_polynomial_v2(_univariateDegrees, _maxTotalDegree):
+    order = len(_univariateDegrees)
+    dimensions = [deg+1 for deg in _univariateDegrees]
+    maxTheoreticalDegrees = np.minimum(np.cumsum(_univariateDegrees[:-1]), np.cumsum(_univariateDegrees[1:][::-1])[::-1])
+    degrees = np.minimum(maxTheoreticalDegrees, _maxTotalDegree)  # what are the maximum possible degrees in each core
+    slices = [1] + (degrees+1).tolist() + [1]
+    ranks = slices[1:-1]  #TODO: only works because each block has size 1x1x1
+    blocks = []
+    for m in range(order):
+        blocks.append([block[l,e,r] for l in range(slices[m]) for e in range(dimensions[m]) for r in range(slices[m+1]) if e <= abs(l-r)])
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
