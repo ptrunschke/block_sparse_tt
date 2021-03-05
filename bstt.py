@@ -60,6 +60,9 @@ class BlockSparseTensor(object):
         assert all(shapeBlock.contains(block) for block in self.blocks)
         self.shape = _shape
 
+    def dofs(self):
+        return sum(blk.size for blk in self.blocks)
+
     def svd(self, _mode):
         """
         Perform an SVD along the `_mode`-th mode while retaining the the block structure.
@@ -108,14 +111,17 @@ class BlockSparseTensor(object):
 
         # Check if the block structure can be retained.
         # It is necessary that there are no slices in the matricisation that are necessarily zero due to the block structure.
+        assert mSlices[0][0] == 0, f"Hole found in mode {_mode}: (0:{mSlices[0][0]})"
         for j in range(len(mSlices)-1):
             assert mSlices[j][1] == mSlices[j+1][0], f"Hole found in mode {_mode}: ({mSlices[j][1]}:{mSlices[j+1][0]})"
+        assert mSlices[-1][1] == self.shape[_mode], f"Hole found in mode {_mode}: ({mSlices[-1][1]}:{self.shape[_mode]})"
         # After matricisation the SVD is performed for each row-slice individually.
         # To ensure that the block structure is maintained the non-zero columns must outnumber the non-zero rows.
         for slc in mSlices:
             rows = slc[1]-slc[0]
             cols = sum(Block(blk).size for blk in self.blocks if blk[_mode].start == slc[0])     #NOTE: For coherent blocks blk[0].start == slc[0] implies equality of the slice.
-            cols /= rows  # cols is the number of all non-zero columns of the `slc`-slice of the matricisation.
+            assert cols % rows == 0
+            cols //= rows  # cols is the number of all non-zero columns of the `slc`-slice of the matricisation.
             assert rows <= cols, f"The {_mode}-matrification has too few non-zero columns (shape: {(rows, cols)}) for slice ({slc[0]}:{slc[1]})."  # of components[{m}][{reason[0].start}:{reason[0].stop}] has too few non-zero columns (rows: {reason[1][0]}, columns: {reason[1][1]})"
 
         def notMode(_tuple):
@@ -260,6 +266,9 @@ class BlockSparseTT(object):
 
             self.__corePosition += 1
         self.verify()
+
+    def dofs(self):
+        return sum(BlockSparseTensor.fromarray(comp, blks).dofs() for comp, blks in zip(self.components, self.blocks))
 
     @classmethod
     def random(cls, _dimensions, _ranks, _blocks):
