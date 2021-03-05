@@ -106,14 +106,14 @@ def plot(xs, ys1, ys2):
     ax.set_yticks(10.0**np.arange(-16,7), minor=True)
     ax.yaxis.set_minor_formatter(ticker.NullFormatter())
     ax.set_yticks(10.0**np.arange(-16,7,3))
-    ax.set_xlabel(r"$n$", fontsize=fontsize)
+    ax.set_xlabel(r"\# sampels", fontsize=fontsize)
     ax.set_ylabel(r"rel. error", fontsize=fontsize)
 
     legend_elements = [
         Line2D([0], [0], color=coloring.mix(C0, 80), lw=1.5),  #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
         Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5),  #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
     ]
-    ax.legend(legend_elements, ["sparse", "dense"], loc='lower left', fontsize=fontsize)
+    ax.legend(legend_elements, ["block-sparse TT", "dense TT"], loc='lower left', fontsize=fontsize)
 
     plt.subplots_adjust(**geometry)
     os.makedirs("figures", exist_ok=True)
