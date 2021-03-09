@@ -30,7 +30,7 @@ class Block(tuple):
         assert isinstance(_other, Block) and len(self) == len(_other) and self.is_valid() and _other.is_valid()
         def contains_slice(_slc1, _slc2):
             return _slc1.start <= _slc2.start and _slc1.stop >= _slc2.stop
-        return any(contains_slice(slc1, slc2) for slc1,slc2 in zip(self, _other))
+        return all(contains_slice(slc1, slc2) for slc1,slc2 in zip(self, _other))
 
     def coherent(self, _other):
         """
@@ -51,14 +51,14 @@ class BlockSparseTensor(object):
         self.data = _data
         assert isinstance(_blocks, (list, tuple))
         self.blocks = [Block(block) for block in _blocks]
+        self.shape = _shape
+        shapeBlock = Block(slice(0,dim,1) for dim in self.shape)
+        assert all(shapeBlock.contains(block) for block in self.blocks)
         assert all(block.is_valid() for block in self.blocks) and sum(block.size for block in self.blocks) == self.data.size
         for i in range(len(self.blocks)):
             for j in range(i):
                 assert self.blocks[i].disjoint(self.blocks[j]) and self.blocks[i].coherent(self.blocks[j])
-        assert isinstance(_shape, tuple) and np.all(np.array(_shape) > 0)
-        shapeBlock = Block(slice(0,dim,1) for dim in _shape)
-        assert all(shapeBlock.contains(block) for block in self.blocks)
-        self.shape = _shape
+        assert isinstance(self.shape, tuple) and np.all(np.array(self.shape) > 0)
 
     def dofs(self):
         return sum(blk.size for blk in self.blocks)
