@@ -69,6 +69,10 @@ def random_homogenous_polynomial(_univariateDegrees, _totalDegree, _blockSize=1)
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
+#TODO:
+# - redefine block(size)[name, name, name]
+
+
 # def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):
 #     dimensions = [dim+1 for dim in _univariateDegrees]
 #     nnslice = np.concatenate([0], np.cumsum(np.concatenate([1], _nnranks)))
