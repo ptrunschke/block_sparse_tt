@@ -51,6 +51,24 @@ def random_polynomial_v2(_univariateDegrees, _maxTotalDegree):
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
+def random_homogenous_polynomial(_univariateDegrees, _totalDegree, _blockSize=1):
+    # Assume that _totalDegree <= _univariateDegrees. Then the necessary degree _totalDegree can be achieved by one component alone.
+    # Moreover, not all polynomials of the given _totalDegree would be representable otherwise (notably x[k]**_totalDegree).
+    # Using this assumption simplifies the block structure.
+    _univariateDegrees = np.asarray(_univariateDegrees, dtype=int)
+    assert isinstance(_totalDegree, int) and _totalDegree >= 0
+    assert _univariateDegrees.ndim == 1 and np.all(_univariateDegrees >= _totalDegree)
+    assert _blockSize == 1
+    order = len(_univariateDegrees)
+    dimensions = _univariateDegrees+1
+    ranks = [_totalDegree+1]*(order-1)  #TODO: only works for _blockSize 1
+    blocks = [[block[0,l,l] for l in range(_totalDegree+1)]]  # _totalDegree <= _univariateDegrees[0]
+    for m in range(1, order-1):
+        blocks.append([block[k,l,k+l] for k in range(_totalDegree+1) for l in range(_totalDegree+1-k)])  # k+l <= _totalDegree <--> l < _totalDegree+1-k
+    blocks.append([block[k,_totalDegree-k,0] for k in range(_totalDegree+1)])  # k+l == _totalDegree <--> l == _totalDegree-k
+    return BlockSparseTT.random(dimensions, ranks, blocks)
+
+
 # def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):
 #     dimensions = [dim+1 for dim in _univariateDegrees]
 #     nnslice = np.concatenate([0], np.cumsum(np.concatenate([1], _nnranks)))

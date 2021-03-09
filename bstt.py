@@ -219,6 +219,15 @@ class BlockSparseTT(object):
                 cmp[block] = 0
             assert np.allclose(cmp, 0), f"Component {e} does not satisfy the block structure. Error:\n{np.max(abs(cmp))}"
 
+    def evaluate(self, _measures):
+        assert self.order > 0 and len(_measures) == self.order
+        n = len(_measures[0])
+        ret = np.ones((n,1))
+        for pos in range(self.order):
+            ret = np.einsum('nl,ler,ne -> nr', ret, self.components[pos], _measures[pos])
+        assert ret.shape == (n,1)
+        return ret[:,0]
+
     @property
     def corePosition(self):
         return self.__corePosition
