@@ -23,8 +23,6 @@ univariateDegree = 2
 homogeneousDegree = 2
 
 bstt = random_homogenous_polynomial([univariateDegree]*M, homogeneousDegree, 1)
-print("Dimensions:", bstt.dimensions)
-print("Ranks:     ", bstt.ranks)
 d = univariateDegree+1
 
 samples = 2*np.random.rand(N,M)-1

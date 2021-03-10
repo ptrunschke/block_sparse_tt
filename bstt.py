@@ -3,6 +3,14 @@ from scipy.sparse import block_diag, diags
 
 
 class Block(tuple):
+    def __str__(self):
+        assert self.is_valid()
+        return "(" + ", ".join(f"{slc.start}:{slc.stop}" for slc in self) + ")"
+
+    def __repr__(self):
+        assert self.is_valid()
+        return "(" + ", ".join(f"{slc.start}:{slc.stop}" for slc in self) + ")"
+
     @property
     def size(self):
         def slice_size(_slc):
@@ -217,7 +225,7 @@ class BlockSparseTT(object):
             cmp = np.array(component)
             for block in compBlocks:
                 cmp[block] = 0
-            assert np.allclose(cmp, 0), f"Component {e} does not satisfy the block structure. Error:\n{np.max(abs(cmp))}"
+            assert np.allclose(cmp, 0), f"Component {e} does not satisfy the block structure. Error: {np.max(abs(cmp)):.2e}"
 
     def evaluate(self, _measures):
         assert self.order > 0 and len(_measures) == self.order
