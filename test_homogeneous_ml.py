@@ -25,16 +25,16 @@ N = int(1e3)  # number of samples
 # f = lambda xs: np.pi + np.sum(xs, axis=1) + np.linalg.norm(xs, axis=1)**2 + np.sum(xs, axis=1)*np.linalg.norm(xs, axis=1)**2
 # maxDegree = 3
 
-# print("Recover an exponential")
-# M = 6    # order
-# f = lambda xs: np.exp(-4*np.linalg.norm(xs, axis=1)**2)
-# maxDegree = 7
+print("Recover an exponential")
+M = 6    # order
+f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
+maxDegree = 7
 
-print("Recover the mean of uniform Darcy")
-M = 20    # order
-z = np.load(".cache/darcy_uniform_mean.npz")
-assert N < len(z['values'])
-maxDegree = 5
+# print("Recover the mean of uniform Darcy")
+# M = 20    # order
+# z = np.load(".cache/darcy_uniform_mean.npz")
+# assert N < len(z['values'])
+# maxDegree = 5
 
 
 def measures(_points, _degree):
