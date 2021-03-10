@@ -8,6 +8,7 @@ from rich.table import Table
 
 from misc import random_homogenous_polynomial, random_full
 from als import ALS
+from riccati import riccati_matrices
 
 
 # ==========
@@ -18,6 +19,7 @@ N = int(1e3)  # number of samples
 
 # print("Recover a polynomial")
 # M = 6    # order
+# # M = 32    # order
 # # f = lambda xs: legval(xs[:,0], [0,0,1])  # L2(x0) * L0(x1) * L0(x2)
 # # f = lambda xs: sum(legval(xs[:,m], [0,0,1]) for m in range(xs.shape[1]))
 # # f = lambda xs: xs[:,0]**2  # x0**2 * L0(x1) * L0(x2) but x0**2 != L2(x0)
@@ -25,10 +27,16 @@ N = int(1e3)  # number of samples
 # f = lambda xs: np.pi + np.sum(xs, axis=1) + np.linalg.norm(xs, axis=1)**2 + np.sum(xs, axis=1)*np.linalg.norm(xs, axis=1)**2
 # maxDegree = 3
 
-print("Recover an exponential")
-M = 6    # order
-f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
-maxDegree = 7
+print("Recover a value function")
+M = 32    # order
+*_, Pi = riccati_matrices(M)
+f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
+maxDegree = 3
+
+# print("Recover an exponential")
+# M = 6    # order
+# f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
+# maxDegree = 7
 
 # print("Recover the mean of uniform Darcy")
 # M = 20    # order
