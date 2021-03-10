@@ -1,21 +1,24 @@
+from math import comb
+
 import numpy as np
 from numpy.polynomial.legendre import legval
 
 from bstt import Block, BlockSparseTT
-
 import autoPDB
 
 
 class __block(object):
-    def __getitem__(self, slices):
-        assert len(slices) == 3
-        assert all(isinstance(slc, (int, slice)) for slc in slices)
+    def __getitem__(self, _slices):
+        assert len(_slices) == 3
+        assert all(isinstance(slc, (int, slice)) for slc in _slices)
         def as_slice(_slc):
             if isinstance(_slc, slice):
+                assert _slc.step in (None, 1) and 0 <= _slc.start < _slc.stop
                 return _slc
-            assert 0 <= _slc
-            return slice(_slc, _slc+1)
-        return Block(as_slice(slc) for slc in slices)
+            else:
+                assert _slc >= 0
+                return slice(_slc, _slc+1)
+        return Block(as_slice(slc) for slc in _slices)
 block = __block()
 
 
@@ -69,8 +72,66 @@ def random_homogenous_polynomial(_univariateDegrees, _totalDegree, _blockSize=1)
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
-#TODO:
-# - redefine block(size)[name, name, name]
+def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupSize=1):
+    # Assume that _totalDegree <= _univariateDegrees. Then the necessary degree _totalDegree can be achieved by one component alone.
+    # Moreover, not all polynomials of the given _totalDegree would be representable otherwise (notably x[k]**_totalDegree).
+    # Using this assumption simplifies the block structure.
+    #
+    # Die Intuition hinter einer Komponente C(l,m,l+m) ist, dass Gruppe l unter dem Einfluss von m auf Gruppe l+m abgebildet wird.
+    # Die Größe der Gruppe l+m hängt dabei von der Größe der Gruppen l und m ab!
+    # Bezeichne mit space(l,k) den Raum der von der Gruppe l in der k-ten Komponente des TTs auf gespannt wird und mit size(l,k) dessen Dimension.
+    # Bezeichne außerdem mit poly(m) den Raum der vom m-ten Basispolynom aufgespannt wird. (Nimm an, dass deg(poly(m)) = m.)
+    # Das ist die maximale Anzahl unterschiedlicher Polynome in Gruppe r der (k+1)-ten Komponente beschränkt duch
+    #     size(r,k+1) = dim(space(r,k+1)) <= dim(sum(space(l,k)*poly(r-l) for l in range(r+1))) = sum(size(l,k) for l in range(r+1)) = np.sum(size(:r+1,k)).
+    #
+    # Wir wollen nun eine Formel für size() herleiten und verwenden dafür, dass _maxGroupSize für all k gleich ist.
+    # Wir definieren size(r,k+1) = min(maxSize(r,k+1), _maxGroupSize) rekursiv mit maxSize(r,k+1) = np.sum(size(:r+1,k))
+    # und definiere außerdem MaxSize(r,k+1) = np.sum(MaxSize(:r+1,k)).
+    # Falls np.all(size(:r+1,k) < _maxGroupSize), dann gilt size(:r+1,k) = maxSize(:r+1,k) = MaxSize(:r,k+1) und folglich maxSize(r,k+1) = MaxSize(r,k+1) und
+    #     size(r,k+1) = min(MaxSize(r,k+1), _maxGroupSize).
+    # Falls jedoch np.any(size(:r+1,k) >= _maxGroupSize), dann folgen MaxSize(r,k+1) >= maxSize(r,k+1) = np.sum(size(:r+1,k)) > _maxGroupSize und
+    #     size(r,k+1) = min(maxSize(r,k+1), _maxGroupSize) = _maxGroupSize = min(MaxSize(r,k+1), _maxGroupSize).
+    # Insgesamt gilt also size(r,k) = min(MaxSize(r,k), _maxGroupSize) für alle r,k.
+    #
+    # Es bleibt nur noch eine Formel für MaxSize(r,k) zu finden.
+    # Da MaxSize(r+1,k+1) = np.sum(MaxSize(:r+2,k)) = MaxSize(r,k+1) + MaxSize(r+1,k) folg aus Pascals Formel
+    #     MaxSize(r,k) = comb(k+r,k) .
+    # (Beachte, dass MaxSize(r+1,k+1) = comb(k+r+2,k+1) = comb(k+r+1,k) + comb(k+r+1,k+1) = MaxSize(r+1,k) + MaxSize(r,k+1).)
+    #
+    # Zuletzt beachte, dass sich gleiche Einschränkungen für die Gruppengröße auch von rechts nach links berechnen lassen.
+    # Von rechts aus gezählt (angefangen bei 0!) befinden wir uns dann in der Komponente order-k-1.
+    # Die linken Gruppen dieser Komponente sind die rechten der Komponente mk = order-k-2.
+    # Von links aus gezählt haben wir bisher ein polynom von Grad r. Um ein Polynom von Grad _totalDegree zu erhalten 
+    # muss also der Polynomgrad von rechts aus gezählt mr = _totalDegree-r sein.
+    # In der Tat gilt also
+    #     size(r,k) = min(comb(k+r,k), comb(mk+mr, mk), _maxGroupSize).
+    _univariateDegrees = np.asarray(_univariateDegrees, dtype=int)
+    assert isinstance(_totalDegree, int) and _totalDegree >= 0
+    assert _univariateDegrees.ndim == 1 and np.all(_univariateDegrees >= _totalDegree)
+    order = len(_univariateDegrees)
+
+    def MaxSize(r,k):
+        mr, mk = _totalDegree-r, order-k-2
+        return min(comb(k+r,k), comb(mk+mr, mk), _maxGroupSize)
+
+    dimensions = _univariateDegrees+1
+    blocks = [[block[0,l,l] for l in range(_totalDegree+1)]]  # _totalDegree <= _univariateDegrees[0]
+    ranks = []
+    for m in range(1, order-1):
+        mblocks = []
+        leftSizes = [MaxSize(l,m-1) for l in range(_totalDegree+1)]
+        leftSlices = np.cumsum([0] + leftSizes).tolist()
+        rightSizes = [MaxSize(r,m) for r in range(_totalDegree+1)]
+        rightSlices = np.cumsum([0] + rightSizes).tolist()
+        for l in range(_totalDegree+1):
+            for r in range(l, _totalDegree+1):
+                m = r-l  # 0 <= m <= _totalDegree-l <= _totalDegree <= _univariateDegrees[m]
+                mblocks.append(block[leftSlices[l]:leftSlices[l+1], m, rightSlices[r]:rightSlices[r+1]])
+        ranks.append(leftSlices[-1])
+        blocks.append(mblocks)
+    ranks.append(_totalDegree+1)
+    blocks.append([block[k,_totalDegree-k,0] for k in range(_totalDegree+1)])  # k+l == _totalDegree <--> l == _totalDegree-k
+    return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
 # def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):

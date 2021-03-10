@@ -6,7 +6,7 @@ from numpy.polynomial.legendre import legval
 from rich.console import Console
 from rich.table import Table
 
-from misc import random_homogenous_polynomial, random_full
+from misc import random_homogenous_polynomial, random_homogenous_polynomial_v2, random_full
 from als import ALS
 from riccati import riccati_matrices
 
@@ -26,23 +26,42 @@ N = int(1e3)  # number of samples
 # # f = lambda xs: np.linalg.norm(xs, axis=1)**2
 # f = lambda xs: np.pi + np.sum(xs, axis=1) + np.linalg.norm(xs, axis=1)**2 + np.sum(xs, axis=1)*np.linalg.norm(xs, axis=1)**2
 # maxDegree = 3
+# maxGroupSize = 1
 
 print("Recover a value function")
-M = 32    # order
+# M = 32    # order
+M = 8     # order
 *_, Pi = riccati_matrices(M)
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
 maxDegree = 3
+maxGroupSize = 2
 
 # print("Recover an exponential")
 # M = 6    # order
 # f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
 # maxDegree = 7
+# maxGroupSize = 1
 
 # print("Recover the mean of uniform Darcy")
 # M = 20    # order
 # z = np.load(".cache/darcy_uniform_mean.npz")
 # assert N < len(z['values'])
 # maxDegree = 5
+# maxGroupSize = 1
+
+
+def unslice(_block):
+    assert all(slc.stop == slc.start+1 for  slc in _block)
+    return tuple(slc.start for slc in _block)
+
+def setize(_blocks):
+    return {unslice(blk) for blk in _blocks}
+
+for deg in range(maxDegree+1):
+    p1 = random_homogenous_polynomial([maxDegree]*M, deg, 1)
+    p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, 1)
+    if not all(setize(p1blk) == setize(p2blk) for p1blk, p2blk in zip(p1.blocks, p2.blocks)):
+        from IPython import embed; embed()
 
 
 def measures(_points, _degree):
@@ -59,7 +78,7 @@ def recover_ml(_points, _values, _maxDegree, _maxIter=10, _targetResidual=1e-12)
     numSamples, order = _points.shape
     meas = measures(_points, _maxDegree)
     assert meas.shape == (order,numSamples,_maxDegree+1)
-    bstts = [random_homogenous_polynomial([_maxDegree]*order, deg, 1) for deg in range(_maxDegree+1)]
+    bstts = [random_homogenous_polynomial_v2([_maxDegree]*order, deg, maxGroupSize) for deg in range(_maxDegree+1)]
     for bstt in bstts:
         bstt.assume_corePosition(order-1)
         while bstt.corePosition > 0: bstt.move_core('left')
@@ -173,8 +192,3 @@ table.add_row("dense TT", f"{residual([bstt], measures_test, values_test):.2e}",
 table.add_row("sparse", f"", f"{sparse_dofs()}")
 table.add_row("full", f"", f"{dense_dofs()}")
 console.print(table)
-
-
-def unslice(_block):
-    assert all(slc.stop == slc.start+1 for  slc in _block)
-    return tuple(slc.start for slc in _block)
