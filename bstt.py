@@ -11,6 +11,16 @@ class Block(tuple):
         assert self.is_valid()
         return "(" + ", ".join(f"{slc.start}:{slc.stop}" for slc in self) + ")"
 
+    def __hash__(self):
+        assert self.is_valid()
+        return hash(tuple((slc.start, slc.stop) for slc in self))
+
+    def __eq__(self, _other):
+        if not isinstance(_other, Block) or len(self) != len(_other):
+            return False
+        assert self.is_valid() and _other.is_valid()
+        return all(s1.start == s2.start and s1.stop == s2.stop for s1,s2 in zip(self,_other))
+
     @property
     def size(self):
         def slice_size(_slc):

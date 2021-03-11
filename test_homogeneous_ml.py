@@ -50,18 +50,14 @@ maxGroupSize = 2
 # maxGroupSize = 1
 
 
-def unslice(_block):
-    assert all(slc.stop == slc.start+1 for  slc in _block)
-    return tuple(slc.start for slc in _block)
-
-def setize(_blocks):
-    return {unslice(blk) for blk in _blocks}
-
 for deg in range(maxDegree+1):
     p1 = random_homogenous_polynomial([maxDegree]*M, deg, 1)
     p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, 1)
-    if not all(setize(p1blk) == setize(p2blk) for p1blk, p2blk in zip(p1.blocks, p2.blocks)):
-        from IPython import embed; embed()
+    assert all(set(p1blk) == set(p2blk) for p1blk, p2blk in zip(p1.blocks, p2.blocks))
+    # p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, maxGroupSize)
+    # for m in range(M):
+    #     for p1blk in p1.blocks[m]:
+    #         assert any(p2blk.contains(p1blk) for p2blk in p2.blocks[m])
 
 
 def measures(_points, _degree):
