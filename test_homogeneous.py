@@ -8,37 +8,56 @@ from rich.table import Table
 
 from misc import random_homogenous_polynomial
 from als import ALS
+from riccati import riccati_matrices
 
 
 # ==========
 #  TRAINING
 # ==========
 
-M = 6
-univariateDegree = 6
-maxDegree = 2
-
 N = int(1e3)  # number of samples
+# N = int(1e5)  # number of samples
+
+
+# print("Recover a synthetic function")
 # f = lambda xs: np.linalg.norm(xs, axis=1)**2  # (not homogeneous)
 # f = lambda xs: xs[:,0]**2                     # (not homogeneous)
 # f = lambda xs: legval(xs[:,0], [0,0,1])       # L2(x0)*L0(x1)*L0(x2) (homogeneous)
-f = lambda xs: sum(legval(xs[:,m], [0,0,1]) for m in range(xs.shape[1]))  # L2(x0)*L0(x1)*L0(x2) (homogeneous)
+# f = lambda xs: sum(legval(xs[:,m], [0,0,1]) for m in range(xs.shape[1]))  # L2(x0)*L0(x1)*L0(x2) (homogeneous)
+# univariateDegree = 6
+# maxDegree = 2
+# maxGroupSize = 1
+
+# def measures(_points, _degree):
+#     factors = np.sqrt(2*np.arange(_degree+1)+1)
+#     return legval(_points, np.diag(factors)).T
+
+
+print("Recover a value function")
+# M = 32    # order
+M = 8     # order
+*_, Pi = riccati_matrices(M)
+f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
+univariateDegree = 3
+maxDegree = 2
+# maxGroupSize = np.inf
+maxGroupSize = 1
+
+def measures(_points, _degree):
+    return _points.T[...,None]**np.arange(_degree+1)[None,None]
+
 
 bstt = random_homogenous_polynomial([univariateDegree]*M, maxDegree, 1)
-print("Dimensions:", bstt.dimensions)
-print("Ranks:     ", bstt.ranks)
 d = univariateDegree+1
 
 samples = 2*np.random.rand(N,M)-1
-factors = np.sqrt(2*np.arange(d)+1)
-measures = legval(samples, np.diag(factors)).T
-assert measures.shape == (M,N,d)
+meas = measures(samples, univariateDegree)
+assert meas.shape == (M,N,d)
 values = f(samples)
 assert values.shape == (N,)
 
-solver = ALS(bstt, measures, values, _verbosity=1)
+solver = ALS(bstt, meas, values, _verbosity=2)
 solver.targetResidual = 1e-12
-solver.minDecrease = 1e-12
 solver.run()
 
 
@@ -49,12 +68,11 @@ solver.run()
 def test(_bstt):
     N = int(1e3)  # number of test samples
     samples = 2*np.random.rand(N,M)-1
-    factors = np.sqrt(2*np.arange(d)+1)
-    measures = legval(samples, np.diag(factors)).T
-    assert measures.shape == (M,N,d)
+    meas = measures(samples, univariateDegree)
+    assert meas.shape == (M,N,d)
     values = f(samples)
     assert values.shape == (N,)
-    return ALS(_bstt, measures, values).residual()
+    return ALS(_bstt, meas, values).residual()
 
 def to_xe(_tt):
     ret = xe.TTTensor(_tt.dimensions)
