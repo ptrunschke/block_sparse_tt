@@ -33,8 +33,10 @@ print("Recover a value function")
 M = 8     # order
 *_, Pi = riccati_matrices(M)
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
-maxDegree = 3
-maxGroupSize = 2
+# maxDegree = 3
+# maxGroupSize = 2
+maxDegree = 2
+maxGroupSize = 1
 
 # print("Recover an exponential")
 # M = 6    # order
@@ -49,6 +51,13 @@ maxGroupSize = 2
 # maxDegree = 5
 # maxGroupSize = 1
 
+def measures(_points, _degree):
+    return _points.T[...,None]**np.arange(_degree+1)[None,None]
+
+# def measures(_points, _degree):
+#     factors = np.sqrt(2*np.arange(_degree+1)+1)
+#     return legval(_points, np.diag(factors)).T
+
 
 for deg in range(maxDegree+1):
     p1 = random_homogenous_polynomial([maxDegree]*M, deg, 1)
@@ -60,21 +69,19 @@ for deg in range(maxDegree+1):
     #         assert any(p2blk.contains(p1blk) for p2blk in p2.blocks[m])
 
 
-def measures(_points, _degree):
-    factors = np.sqrt(2*np.arange(_degree+1)+1)
-    return legval(_points, np.diag(factors)).T
-
-
 def residual(_bstts, _measures, _values):
     pred = sum(bstt.evaluate(_measures) for bstt in _bstts)
     return np.linalg.norm(pred -  _values) / np.linalg.norm(_values)
 
 
-def recover_ml(_points, _values, _maxDegree, _maxIter=10, _targetResidual=1e-12):
+def recover_ml(_points, _values, _degrees, _maxIter=10, _targetResidual=1e-12):
+    if isinstance(_degrees, int):
+        _degrees = list(range(_degrees+1))
+    maxDegree = max(_degrees)
     numSamples, order = _points.shape
-    meas = measures(_points, _maxDegree)
-    assert meas.shape == (order,numSamples,_maxDegree+1)
-    bstts = [random_homogenous_polynomial_v2([_maxDegree]*order, deg, maxGroupSize) for deg in range(_maxDegree+1)]
+    meas = measures(_points, maxDegree)
+    assert meas.shape == (order,numSamples,maxDegree+1)
+    bstts = [random_homogenous_polynomial_v2([maxDegree]*order, deg, maxGroupSize) for deg in _degrees]
     for bstt in bstts:
         bstt.assume_corePosition(order-1)
         while bstt.corePosition > 0: bstt.move_core('left')
@@ -83,12 +90,12 @@ def recover_ml(_points, _values, _maxDegree, _maxIter=10, _targetResidual=1e-12)
     res = np.inf
     for itr in range(_maxIter):
         print(f"Iteration: {itr}")
-        for deg in range(_maxDegree+1):
-            vals = _values - sum(bstt.evaluate(meas) for bstt in bstts[:deg]+bstts[deg+1:])
-            solver = ALS(bstts[deg], meas, vals, _verbosity=0)
+        for lvl in range(len(bstts)):
+            vals = _values - sum(bstt.evaluate(meas) for bstt in bstts[:lvl]+bstts[lvl+1:])
+            solver = ALS(bstts[lvl], meas, vals, _verbosity=0)
             solver.targetResidual = _targetResidual
             solver.run()
-            bstts[deg] = solver.bstt
+            bstts[lvl] = solver.bstt
         old_res, res = res, residual(bstts, meas, _values)
         print(f"Residual: {res:.2e}")
         if old_res < res or res < _targetResidual: break
@@ -108,7 +115,8 @@ meas = measures(points, maxDegree)
 assert meas.shape == (M,N,maxDegree+1)
 
 
-bstts = recover_ml(points, values, maxDegree, _maxIter=20)
+# bstts = recover_ml(points, values, maxDegree, _maxIter=20)
+bstts = recover_ml(points, values, [maxDegree]*8, _maxIter=20)
 assert all(bstt.dimensions == bstts[0].dimensions for bstt in bstts[1:])
 
 
