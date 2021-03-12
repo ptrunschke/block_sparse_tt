@@ -117,20 +117,20 @@ def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupS
     dimensions = _univariateDegrees+1
     blocks = [[block[0,l,l] for l in range(_totalDegree+1)]]  # _totalDegree <= _univariateDegrees[0]
     ranks = []
-    for m in range(1, order-1):
+    for k in range(1, order-1):
         mblocks = []
-        leftSizes = [MaxSize(l,m-1) for l in range(_totalDegree+1)]
+        leftSizes = [MaxSize(l,k-1) for l in range(_totalDegree+1)]
         leftSlices = np.cumsum([0] + leftSizes).tolist()
-        rightSizes = [MaxSize(r,m) for r in range(_totalDegree+1)]
+        rightSizes = [MaxSize(r,k) for r in range(_totalDegree+1)]
         rightSlices = np.cumsum([0] + rightSizes).tolist()
         for l in range(_totalDegree+1):
-            for r in range(l, _totalDegree+1):
+            for r in range(l, _totalDegree+1):  # If a polynomial of degree l is multiplied with another polynomial the degree must be at least l.
                 m = r-l  # 0 <= m <= _totalDegree-l <= _totalDegree <= _univariateDegrees[m]
                 mblocks.append(block[leftSlices[l]:leftSlices[l+1], m, rightSlices[r]:rightSlices[r+1]])
         ranks.append(leftSlices[-1])
         blocks.append(mblocks)
     ranks.append(_totalDegree+1)
-    blocks.append([block[k,_totalDegree-k,0] for k in range(_totalDegree+1)])  # k+l == _totalDegree <--> l == _totalDegree-k
+    blocks.append([block[l,_totalDegree-l,0] for l in range(_totalDegree+1)])  # l+m == _totalDegree <--> m == _totalDegree-l
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 

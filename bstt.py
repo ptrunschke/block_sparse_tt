@@ -3,49 +3,45 @@ from scipy.sparse import block_diag, diags
 
 
 class Block(tuple):
+    def __init__(self, iterable):
+        super(Block, self).__init__()
+        for slc in self:
+            assert isinstance(slc, slice) and isinstance(slc.start, int) and isinstance(slc.stop, int) and 0 <= slc.start < slc.stop and slc.step in (None,1)
+            #NOTE: The final two conditions may restrict the structure of the blocks unnecessarily.
+
     def __str__(self):
-        assert self.is_valid()
         return "(" + ", ".join(f"{slc.start}:{slc.stop}" for slc in self) + ")"
 
     def __repr__(self):
-        assert self.is_valid()
         return "(" + ", ".join(f"{slc.start}:{slc.stop}" for slc in self) + ")"
 
     def __hash__(self):
-        assert self.is_valid()
         return hash(tuple((slc.start, slc.stop) for slc in self))
 
     def __eq__(self, _other):
         if not isinstance(_other, Block) or len(self) != len(_other):
             return False
-        assert self.is_valid() and _other.is_valid()
         return all(s1.start == s2.start and s1.stop == s2.stop for s1,s2 in zip(self,_other))
 
     @property
     def size(self):
+        return np.product(self.shape)
+
+    @property
+    def shape(self):
         def slice_size(_slc):
             return _slc.stop - _slc.start
-        ret = 1
-        for slc in self:
-            ret *= slice_size(slc)
-        return ret
-
-    def is_valid(self):
-        for slc in self:
-            if not (isinstance(slc, slice) and isinstance(slc.start, int) and isinstance(slc.stop, int) and 0 <= slc.start < slc.stop and slc.step in (None,1)):
-                #NOTE: The final two conditions may restrict the structure of the blocks unnecessarily.
-                return False
-        return True
+        return tuple(slice_size(slc) for slc in self)
 
     def disjoint(self, _other):
-        assert isinstance(_other, Block) and len(self) == len(_other) and self.is_valid() and _other.is_valid()
+        assert isinstance(_other, Block) and len(self) == len(_other)
         def disjoint_slices(_slc1, _slc2):
             # return (_slc1.start <= _slc2.start and _slc1.stop <= _slc2.start) or _slc2.stop <= _slc1.start
             return _slc1.stop <= _slc2.start or _slc2.stop <= _slc1.start
         return any(disjoint_slices(slc1, slc2) for slc1,slc2 in zip(self, _other))
 
     def contains(self, _other):
-        assert isinstance(_other, Block) and len(self) == len(_other) and self.is_valid() and _other.is_valid()
+        assert isinstance(_other, Block) and len(self) == len(_other)
         def contains_slice(_slc1, _slc2):
             return _slc1.start <= _slc2.start and _slc1.stop >= _slc2.stop
         return all(contains_slice(slc1, slc2) for slc1,slc2 in zip(self, _other))
@@ -57,7 +53,7 @@ class Block(tuple):
         The first slice contains the left non-overlapping part, the second contains the overlapping part and the third contains the right non-overlapping part.
         """
         #NOTE: The condition that the middle slices are coherent may restrict TT-Blocks unnecessarily.
-        assert isinstance(_other, Block) and len(self) == len(_other) and self.is_valid() and _other.is_valid()
+        assert isinstance(_other, Block) and len(self) == len(_other)
         def disjoint_slices(_slc1, _slc2):
             return (_slc1.start <= _slc2.start and _slc1.stop <= _slc2.start) or _slc2.stop <= _slc1.start
         return all((slc1 == slc2 or disjoint_slices(slc1, slc2)) for slc1, slc2 in zip(self, _other))
@@ -72,7 +68,7 @@ class BlockSparseTensor(object):
         self.shape = _shape
         shapeBlock = Block(slice(0,dim,1) for dim in self.shape)
         assert all(shapeBlock.contains(block) for block in self.blocks)
-        assert all(block.is_valid() for block in self.blocks) and sum(block.size for block in self.blocks) == self.data.size
+        assert sum(block.size for block in self.blocks) == self.data.size
         for i in range(len(self.blocks)):
             for j in range(i):
                 assert self.blocks[i].disjoint(self.blocks[j]) and self.blocks[i].coherent(self.blocks[j])
