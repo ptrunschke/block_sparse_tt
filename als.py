@@ -51,16 +51,19 @@ class ALS(object):
         coreBlocks = self.bstt.blocks[self.bstt.corePosition]
 
         Op_blocks = []
-        Param_blocks = []
+        n = len(self.values)
         for block in coreBlocks:
             op = np.einsum('nl,ne,nr -> nler', L[:, block[0]], E[:, block[1]], R[:, block[2]])
-            op.shape = len(self.values), Block(block).size
-            Op_blocks.append(op)
-            Param_blocks.append(core[block].reshape(-1))
+            Op_blocks.append(op.reshape(n,-1))
         Op = np.concatenate(Op_blocks, axis=1)
-        Param = np.concatenate(Param_blocks)
         Res = np.linalg.solve(Op.T @ Op, Op.T @ self.values)
-        core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
+        # core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
+        a = 0
+        for block in coreBlocks:
+            o = a + block.size
+            core[block] = Res[a:o].reshape(block.shape)
+            a = o
+        assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
 
     def run(self):
         prev_residual = self.residual()
