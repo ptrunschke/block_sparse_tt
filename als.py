@@ -64,6 +64,7 @@ class ALS(object):
             core[block] = Res[a:o].reshape(block.shape)
             a = o
         assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
+        # If this is not satisfied, then either `matricisation` does not work or `__init__` does something strange and `fromarray` does not work.
 
     def run(self):
         prev_residual = self.residual()
