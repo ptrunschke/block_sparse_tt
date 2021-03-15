@@ -175,11 +175,9 @@ class BlockSparseTensor(object):
 
     def toarray(self):
         ret = np.zeros(self.shape)
-        a = 0
-        for block in self.blocks:
-            o = a + Block(block).size
-            ret[block].reshape(-1)[:] = self.data[a:o]
-            a = o
+        slices = np.cumsum([0] + [block.size for block in self.blocks]).tolist()
+        for e,block in enumerate(self.blocks):
+            ret[block] = self.data[slices[e]:slices[e+1]].reshape(block.shape)
         return ret
 
     @classmethod
