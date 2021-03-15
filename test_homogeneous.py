@@ -19,11 +19,12 @@ N = int(1e3)  # number of samples
 # N = int(1e5)  # number of samples
 
 
-# print("Recover a synthetic function")
+# problem = "synthetic function"
 # f = lambda xs: np.linalg.norm(xs, axis=1)**2  # (not homogeneous)
 # f = lambda xs: xs[:,0]**2                     # (not homogeneous)
 # f = lambda xs: legval(xs[:,0], [0,0,1])       # L2(x0)*L0(x1)*L0(x2) (homogeneous)
 # f = lambda xs: sum(legval(xs[:,m], [0,0,1]) for m in range(xs.shape[1]))  # L2(x0)*L0(x1)*L0(x2) (homogeneous)
+# M = 6
 # univariateDegree = 6
 # maxDegree = 2
 # maxGroupSize = 1
@@ -33,14 +34,13 @@ N = int(1e3)  # number of samples
 #     return legval(_points, np.diag(factors)).T
 
 
-print("Recover a value function")
+problem = "value function"
 # M = 32    # order
 M = 8     # order
 *_, Pi = riccati_matrices(M)
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
 univariateDegree = 3
 maxDegree = 2
-print("Maximal possible group size:", max_group_size(M, maxDegree))
 # maxGroupSize = 1
 # maxGroupSize = 2
 # maxGroupSize = 3
@@ -49,6 +49,15 @@ maxGroupSize = 4
 
 def measures(_points, _degree):
     return _points.T[...,None]**np.arange(_degree+1)[None,None]
+
+
+print(f"Recovery: {problem}")
+print(f"    Order:                       {M}")
+print(f"    Univariate degree:           {univariateDegree}")
+print(f"    Homogeneous degree:          {maxDegree}")
+print(f"    Maximal group size:          {maxGroupSize}")
+print(f"    Maximal possible group size: {max_group_size(M, maxDegree)}")
+print(f"    Number of samples:           {N}")
 
 
 bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
@@ -100,7 +109,7 @@ def dofs(_tt):
 def sparse_dofs(_tt):
     assert _tt.dimensions == [_tt.dimensions[0]]*_tt.order()
     degree = _tt.dimensions[0]-1
-    return comb(degree+_tt.order(), _tt.order())
+    return comb(degree+_tt.order()-1, _tt.order()-1)  # compare to test_homogeneous_ml.py
 
 def dense_dofs(_tt):
     return np.product(_tt.dimensions)
@@ -108,7 +117,7 @@ def dense_dofs(_tt):
 xett = to_xe(solver.bstt)
 
 console = Console()
-table = Table(title="Quardartic polynomial", title_style="bold", show_header=True, header_style="dim")
+table = Table(title=f"{problem.lower().capitalize()} (maxGroupSize: {maxGroupSize})", title_style="bold", show_header=True, header_style="dim")
 table.add_column("", style="dim", justify="left")
 table.add_column("Error", justify="right")
 table.add_column("Dofs", justify="right")
