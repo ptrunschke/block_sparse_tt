@@ -6,9 +6,16 @@ from numpy.polynomial.legendre import legval
 from rich.console import Console
 from rich.table import Table
 
-from misc import random_homogenous_polynomial, random_homogenous_polynomial_v2, random_full
+from misc import random_homogenous_polynomial_v2, random_full, max_group_size
 from als import ALS
 from riccati import riccati_matrices
+
+def monomial_measures(_points, _degree):
+    return _points.T[...,None]**np.arange(_degree+1)[None,None]
+
+def legendre_measures(_points, _degree):
+    factors = np.sqrt(2*np.arange(_degree+1)+1)
+    return legval(_points, np.diag(factors)).T
 
 
 # ==========
@@ -17,89 +24,47 @@ from riccati import riccati_matrices
 
 N = int(1e3)  # number of samples
 
-# print("Recover a polynomial")
-# M = 6    # order
-# # M = 32    # order
+
+# problem = "synthetic polynomial"
 # # f = lambda xs: legval(xs[:,0], [0,0,1])  # L2(x0) * L0(x1) * L0(x2)
 # # f = lambda xs: sum(legval(xs[:,m], [0,0,1]) for m in range(xs.shape[1]))
 # # f = lambda xs: xs[:,0]**2  # x0**2 * L0(x1) * L0(x2) but x0**2 != L2(x0)
 # # f = lambda xs: np.linalg.norm(xs, axis=1)**2
 # f = lambda xs: np.pi + np.sum(xs, axis=1) + np.linalg.norm(xs, axis=1)**2 + np.sum(xs, axis=1)*np.linalg.norm(xs, axis=1)**2
+# M = 6    # order
 # maxDegree = 3
 # maxGroupSize = 1
+# measures = legendre_measures
 
-print("Recover a value function")
-# M = 32    # order
-M = 8     # order
-*_, Pi = riccati_matrices(M)
-f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
+
+# problem = "value function"
+# # M = 32    # order
+# M = 8     # order
+# *_, Pi = riccati_matrices(M)
+# f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
 # maxDegree = 3
-# maxGroupSize = 2
-maxDegree = 2
-maxGroupSize = 1
+# maxGroupSize = 4
+# measures = legendre_measures
+# # maxDegree = 2
+# # maxGroupSize = 1
+# # measures = monomial_measures
 
-# print("Recover an exponential")
-# M = 6    # order
+
+# problem = "gaussian density"
 # f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
+# M = 6    # order
 # maxDegree = 7
 # maxGroupSize = 1
-
-# print("Recover the mean of uniform Darcy")
-# M = 20    # order
-# z = np.load(".cache/darcy_uniform_mean.npz")
-# assert N < len(z['values'])
-# maxDegree = 5
-# maxGroupSize = 1
-
-def measures(_points, _degree):
-    return _points.T[...,None]**np.arange(_degree+1)[None,None]
-
-# def measures(_points, _degree):
-#     factors = np.sqrt(2*np.arange(_degree+1)+1)
-#     return legval(_points, np.diag(factors)).T
+# measures = legendre_measures
 
 
-for deg in range(maxDegree+1):
-    p1 = random_homogenous_polynomial([maxDegree]*M, deg, 1)
-    p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, 1)
-    assert all(set(p1blk) == set(p2blk) for p1blk, p2blk in zip(p1.blocks, p2.blocks))
-    p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, maxGroupSize)
-    from misc import block
-    def sortedSlices(_slices):
-        def toTuple(_slc):
-            assert _slc.step in (None,1)
-            return _slc.start, _slc.stop
-        def fromTuple(_tpl):
-            return slice(*_tpl)
-        return sorted(map(fromTuple, set(map(toTuple, _slices))))
-    oldRightSlices = None
-    for m in range(M):
-        blocks = p2.blocks[m]
-        leftSlices = sortedSlices(blk[0] for blk in blocks)
-        middleSlices = sortedSlices(blk[1] for blk in blocks)
-        rightSlices = sortedSlices(blk[2] for blk in blocks)
-        if oldRightSlices is not None:
-            assert oldRightSlices == leftSlices
-        if m == 0:
-            assert len(leftSlices) == 1
-            assert len(middleSlices) == len(rightSlices) == deg+1
-            for m in range(deg+1):
-                assert block[leftSlices[0], middleSlices[m], rightSlices[m]] in blocks
-        elif m == M-1:
-            assert len(leftSlices) == len(middleSlices) == deg+1
-            assert len(rightSlices) == 1
-            for l in range(deg+1):
-                assert block[leftSlices[l], middleSlices[deg-l], rightSlices[0]] in blocks
-        else:
-            assert len(leftSlices) == len(middleSlices) == len(rightSlices) == deg+1
-            for l in range(deg+1):
-                for r in range(l, deg+1):
-                    m = r-l
-                    assert block[leftSlices[l], middleSlices[m], rightSlices[r]] in blocks
-        oldRightSlices = rightSlices
-
-        # for p1blk in p1.blocks[m]:
-        #     assert any(p2blk.contains(p1blk) for p2blk in p2.blocks[m])
+problem = "mean of uniform Darcy"
+M = 20    # order
+z = np.load(".cache/darcy_uniform_mean.npz")
+assert N < len(z['values'])
+maxDegree = 5
+maxGroupSize = 3
+measures = legendre_measures
 
 
 def residual(_bstts, _measures, _values):
@@ -137,10 +102,10 @@ def recover_ml(_points, _values, _degrees, _maxIter=10, _targetResidual=1e-12):
     return bstts
 
 
-try:
+if problem == "mean of uniform Darcy":
     points = z['samples'][:N]
     values = z['values'][:N]
-except:
+else:
     points = 2*np.random.rand(N, M)-1
     values = f(points)
 assert values.shape == (N,)
@@ -148,17 +113,30 @@ meas = measures(points, maxDegree)
 assert meas.shape == (M,N,maxDegree+1)
 
 
-# bstts = recover_ml(points, values, maxDegree, _maxIter=20)
-bstts = recover_ml(points, values, [maxDegree]*8, _maxIter=20)
+print(f"Recovery: {problem}")
+print(f"    Order:                       {M}")
+print(f"    Univariate degree:           {maxDegree}")
+print(f"    Homogeneous degree:          {maxDegree}")
+print(f"    Maximal group size:          {maxGroupSize}")
+print(f"    Maximal possible group size: {max_group_size(M, maxDegree)}")
+print(f"    Number of samples:           {N}")
+print(f"    Measures:                    {measures.__name__}")
+
+
+if problem == "value function" and measures is monomial_measures:
+    assert maxDegree == 2 and maxGroupSize == 1
+    bstts = recover_ml(points, values, [maxDegree]*10, _maxIter=20)
+else:
+    bstts = recover_ml(points, values, maxDegree, _maxIter=20)
 assert all(bstt.dimensions == bstts[0].dimensions for bstt in bstts[1:])
 
 
-try:
+if problem == "mean of uniform Darcy":
     N_test = len(z['samples'])-N
     assert N_test > 0
     points_test = z['samples'][N:]
     values_test = z['values'][N:]
-except:
+else:
     N_test = int(1e4)  # number of test samples
     points_test = 2*np.random.rand(N_test, M)-1
     values_test = f(points_test)
@@ -214,7 +192,7 @@ bstt = solver.bstt
 
 
 console = Console()
-table = Table(title=f"{maxDegree+1}-level BSTT reconstruction", title_style="bold", show_header=True, header_style="dim")
+table = Table(title=f"{problem.lower().capitalize()} (maxDegree: {maxDegree}, maxGroupSize: {maxGroupSize})", title_style="bold", show_header=True, header_style="dim")
 table.add_column("", style="dim", justify="left")
 table.add_column("Error", justify="right")
 table.add_column("Dofs", justify="right")
