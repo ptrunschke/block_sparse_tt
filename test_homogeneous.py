@@ -6,7 +6,7 @@ from numpy.polynomial.legendre import legval
 from rich.console import Console
 from rich.table import Table
 
-from misc import random_homogenous_polynomial
+from misc import random_homogenous_polynomial, random_homogenous_polynomial_v2, max_group_size
 from als import ALS
 from riccati import riccati_matrices
 
@@ -40,14 +40,18 @@ M = 8     # order
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
 univariateDegree = 3
 maxDegree = 2
+print("Maximal possible group size:", max_group_size(M, maxDegree))
+# maxGroupSize = 1
+# maxGroupSize = 2
+# maxGroupSize = 3
+maxGroupSize = 4
 # maxGroupSize = np.inf
-maxGroupSize = 1
 
 def measures(_points, _degree):
     return _points.T[...,None]**np.arange(_degree+1)[None,None]
 
 
-bstt = random_homogenous_polynomial([univariateDegree]*M, maxDegree, 1)
+bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
 d = univariateDegree+1
 
 samples = 2*np.random.rand(N,M)-1

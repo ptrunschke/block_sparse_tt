@@ -134,6 +134,14 @@ def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupS
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
+def max_group_size(_order, _degree):
+    def MaxSize(r, k):
+        mr, mk = _degree-r, _order-k-2
+        return min(comb(k+r,k), comb(mk+mr, mk))
+    # The maximal group sizes for core 0 and order-1 are 1.
+    return max(max(max(MaxSize(deg, pos-1) for deg in range(_degree+1)) for pos in range(1, _order-1)), 1)
+
+
 # def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):
 #     dimensions = [dim+1 for dim in _univariateDegrees]
 #     nnslice = np.concatenate([0], np.cumsum(np.concatenate([1], _nnranks)))
