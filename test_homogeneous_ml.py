@@ -22,7 +22,8 @@ def legendre_measures(_points, _degree):
 #  TRAINING
 # ==========
 
-N = int(1e3)  # number of samples
+# N = int(1e3)  # number of samples
+N = int(1e4)  # number of samples
 
 
 # problem = "synthetic polynomial"
@@ -59,9 +60,12 @@ N = int(1e3)  # number of samples
 
 
 problem = "mean of uniform Darcy"
-M = 20    # order
-z = np.load(".cache/darcy_uniform_mean.npz")
-assert N < len(z['values'])
+# M = 20    # order
+# z = np.load(".cache/darcy_uniform_mean.npz")
+M = 10    # order
+z = np.load(".cache/darcy_uniform_mean_11001.npz")
+assert z['values'].ndim == 1 and N < len(z['values']), f"{z['values'].shape} < {(N,)}"
+assert z['samples'].shape == (len(z['values']), M), f"{z['samples'].shape} != {(len(z['values']), M)}"
 maxDegree = 5
 maxGroupSize = 3
 measures = legendre_measures
