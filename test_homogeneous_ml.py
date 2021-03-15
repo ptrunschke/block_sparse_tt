@@ -176,7 +176,7 @@ def TT_dofs(_tt):
 
 
 def sparse_dofs():
-    return comb(maxDegree+M, M)
+    return comb(maxDegree+M, M)  # compare to test_homogeneous.py
 
 
 def dense_dofs():
