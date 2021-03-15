@@ -16,10 +16,9 @@ from riccati import riccati_matrices
 # ==========
 
 N = int(1e3)  # number of samples
-# N = int(1e5)  # number of samples
 
 
-# problem = "synthetic function"
+# problem = "synthetic polynomial"
 # f = lambda xs: np.linalg.norm(xs, axis=1)**2  # (not homogeneous)
 # f = lambda xs: xs[:,0]**2                     # (not homogeneous)
 # f = lambda xs: legval(xs[:,0], [0,0,1])       # L2(x0)*L0(x1)*L0(x2) (homogeneous)
@@ -60,7 +59,47 @@ def measures(_points, _degree):
 #     a = o
 # assert np.allclose(core, BlockSparseTensor.fromarray(core, coreBlocks).toarray())
 # assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
-#TODO: Move the checks from test_homogeneous_ml to here!
+# 
+# for deg in range(maxDegree+1):
+#     p1 = random_homogenous_polynomial([maxDegree]*M, deg, 1)
+#     p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, 1)
+#     assert all(set(p1blk) == set(p2blk) for p1blk, p2blk in zip(p1.blocks, p2.blocks))
+#     p2 = random_homogenous_polynomial_v2([maxDegree]*M, deg, maxGroupSize)
+#     from misc import block
+#     def sortedSlices(_slices):
+#         def toTuple(_slc):
+#             assert _slc.step in (None,1)
+#             return _slc.start, _slc.stop
+#         def fromTuple(_tpl):
+#             return slice(*_tpl)
+#         return sorted(map(fromTuple, set(map(toTuple, _slices))))
+#     oldRightSlices = None
+#     for m in range(M):
+#         blocks = p2.blocks[m]
+#         leftSlices = sortedSlices(blk[0] for blk in blocks)
+#         middleSlices = sortedSlices(blk[1] for blk in blocks)
+#         rightSlices = sortedSlices(blk[2] for blk in blocks)
+#         if oldRightSlices is not None:
+#             assert oldRightSlices == leftSlices
+#         if m == 0:
+#             assert len(leftSlices) == 1
+#             assert len(middleSlices) == len(rightSlices) == deg+1
+#             for m in range(deg+1):
+#                 assert block[leftSlices[0], middleSlices[m], rightSlices[m]] in blocks
+#         elif m == M-1:
+#             assert len(leftSlices) == len(middleSlices) == deg+1
+#             assert len(rightSlices) == 1
+#             for l in range(deg+1):
+#                 assert block[leftSlices[l], middleSlices[deg-l], rightSlices[0]] in blocks
+#         else:
+#             assert len(leftSlices) == len(middleSlices) == len(rightSlices) == deg+1
+#             for l in range(deg+1):
+#                 for r in range(l, deg+1):
+#                     m = r-l
+#                     assert block[leftSlices[l], middleSlices[m], rightSlices[r]] in blocks
+#         oldRightSlices = rightSlices
+#         # for p1blk in p1.blocks[m]:
+#         #     assert any(p2blk.contains(p1blk) for p2blk in p2.blocks[m])
 
 
 bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
