@@ -51,17 +51,20 @@ def measures(_points, _degree):
     return _points.T[...,None]**np.arange(_degree+1)[None,None]
 
 
+bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
+d = univariateDegree+1
+
+
 print(f"Recovery: {problem}")
 print(f"    Order:                       {M}")
 print(f"    Univariate degree:           {univariateDegree}")
 print(f"    Homogeneous degree:          {maxDegree}")
 print(f"    Maximal group size:          {maxGroupSize}")
 print(f"    Maximal possible group size: {max_group_size(M, maxDegree)}")
+print(f"    Ranks:                       {bstt.ranks}")
 print(f"    Number of samples:           {N}")
 
 
-bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
-d = univariateDegree+1
 
 samples = 2*np.random.rand(N,M)-1
 meas = measures(samples, univariateDegree)
