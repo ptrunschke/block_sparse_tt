@@ -64,22 +64,15 @@ class ALS(object):
         E = self.measurements[self.bstt.corePosition]
         R = self.rightStack[-1]
         coreBlocks = self.bstt.blocks[self.bstt.corePosition]
+        N = len(self.values)
 
         Op_blocks = []
-        n = len(self.values)
         for block in coreBlocks:
             op = np.einsum('nl,ne,nr -> nler', L[:, block[0]], E[:, block[1]], R[:, block[2]])
-            Op_blocks.append(op.reshape(n,-1))
+            Op_blocks.append(op.reshape(N,-1))
         Op = np.concatenate(Op_blocks, axis=1)
         Res = np.linalg.solve(Op.T @ Op, Op.T @ self.values)
-        # core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
-        a = 0
-        for block in coreBlocks:
-            o = a + block.size
-            core[block] = Res[a:o].reshape(block.shape)
-            a = o
-        assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
-        # If this is not satisfied, then either `matricisation` does not work or `__init__` does something strange and `fromarray` does not work.
+        core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
 
         if self.verbosity >= 2:
             print(f"microstep.  (residual: {pre_res:.2e} --> {self.residual():.2e})")
