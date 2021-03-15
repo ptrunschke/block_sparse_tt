@@ -23,15 +23,27 @@ class ALS(object):
             self.move_core('left')
 
     def move_core(self, _direction):
+        assert len(self.leftStack) + len(self.rightStack) == self.bstt.order+1
+        valid_stacks = all(entry is not None for entry in self.leftStack + self.rightStack)
+        if self.verbosity >= 2 and valid_stacks:
+            pre_res = self.residual()
         self.bstt.move_core(_direction)
         if _direction == 'left':
-            if self.verbosity >= 2: print(f"move_core: {self.bstt.corePosition+1} --> {self.bstt.corePosition}")
             self.leftStack.pop()
             self.rightStack.append(np.einsum('ler, ne, nr -> nl', self.bstt.components[self.bstt.corePosition+1], self.measurements[self.bstt.corePosition+1], self.rightStack[-1]))
+            if self.verbosity >= 2:
+                if valid_stacks:
+                    print(f"move_core {self.bstt.corePosition+1} --> {self.bstt.corePosition}.  (residual: {pre_res:.2e} --> {self.residual():.2e})")
+                else:
+                    print(f"move_core {self.bstt.corePosition+1} --> {self.bstt.corePosition}.")
         elif _direction == 'right':
-            if self.verbosity >= 2: print(f"move_core: {self.bstt.corePosition-1} --> {self.bstt.corePosition}")
             self.rightStack.pop()
             self.leftStack.append(np.einsum('nl, ne, ler -> nr', self.leftStack[-1], self.measurements[self.bstt.corePosition-1], self.bstt.components[self.bstt.corePosition-1]))
+            if self.verbosity >= 2:
+                if valid_stacks:
+                    print(f"move_core {self.bstt.corePosition-1} --> {self.bstt.corePosition}.  (residual: {pre_res:.2e} --> {self.residual():.2e})")
+                else:
+                    print(f"move_core {self.bstt.corePosition-1} --> {self.bstt.corePosition}.")
         else:
             raise ValueError(f"Unknown _direction. Expected 'left' or 'right' but got '{_direction}'")
 
@@ -44,6 +56,9 @@ class ALS(object):
         return np.linalg.norm(pred -  self.values) / np.linalg.norm(self.values)
 
     def microstep(self):
+        if self.verbosity >= 2:
+            pre_res = self.residual()
+
         core = self.bstt.components[self.bstt.corePosition]
         L = self.leftStack[-1]
         E = self.measurements[self.bstt.corePosition]
@@ -65,6 +80,9 @@ class ALS(object):
             a = o
         assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
         # If this is not satisfied, then either `matricisation` does not work or `__init__` does something strange and `fromarray` does not work.
+
+        if self.verbosity >= 2:
+            print(f"microstep.  (residual: {pre_res:.2e} --> {self.residual():.2e})")
 
     def run(self):
         prev_residual = self.residual()
