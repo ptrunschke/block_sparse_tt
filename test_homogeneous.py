@@ -51,6 +51,18 @@ def measures(_points, _degree):
     return _points.T[...,None]**np.arange(_degree+1)[None,None]
 
 
+# # Sanity checks
+# slices = np.cumsum([0] + [block.size for block in self.blocks]).tolist()
+# a = 0
+# for block in coreBlocks:
+#     o = a + block.size
+#     core[block] = Res[a:o].reshape(block.shape)
+#     a = o
+# assert np.allclose(core, BlockSparseTensor.fromarray(core, coreBlocks).toarray())
+# assert np.allclose(core, BlockSparseTensor(Res, coreBlocks, core.shape).toarray())
+#TODO: Move the checks from test_homogeneous_ml to here!
+
+
 bstt = random_homogenous_polynomial_v2([univariateDegree]*M, maxDegree, maxGroupSize)
 d = univariateDegree+1
 
@@ -65,15 +77,15 @@ print(f"    Ranks:                       {bstt.ranks}")
 print(f"    Number of samples:           {N}")
 
 
-
 samples = 2*np.random.rand(N,M)-1
 meas = measures(samples, univariateDegree)
 assert meas.shape == (M,N,d)
 values = f(samples)
 assert values.shape == (N,)
 
-solver = ALS(bstt, meas, values, _verbosity=2)
+solver = ALS(bstt, meas, values, _verbosity=1)
 solver.targetResidual = 1e-12
+solver.maxSweeps = 1000
 solver.run()
 
 
