@@ -72,7 +72,7 @@ def random_homogenous_polynomial(_univariateDegrees, _totalDegree, _blockSize=1)
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
-def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupSize=1):
+def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupSize):
     # Assume that _totalDegree <= _univariateDegrees. Then the necessary degree _totalDegree can be achieved by one component alone.
     # Moreover, not all polynomials of the given _totalDegree would be representable otherwise (notably x[k]**_totalDegree).
     # Using this assumption simplifies the block structure.
@@ -140,6 +140,21 @@ def max_group_size(_order, _degree):
         return min(comb(k+r,k), comb(mk+mr, mk))
     # The maximal group sizes for core 0 and order-1 are 1.
     return max(max(max(MaxSize(deg, pos-1) for deg in range(_degree+1)) for pos in range(1, _order-1)), 1)
+
+
+def monomial_measures(_points, _degree):
+    N,M = _points.shape
+    ret = _points.T[...,None]**np.arange(_degree+1)[None,None]
+    assert ret.shape == (M, N, _degree+1)
+    return ret
+
+
+def legendre_measures(_points, _degree):
+    N,M = _points.shape
+    factors = np.sqrt(2*np.arange(_degree+1)+1)
+    ret = legval(_points, np.diag(factors)).T
+    assert ret.shape == (M, N, _degree+1)
+    return ret
 
 
 # def random_nearest_neighbor_polynomial(_univariateDegrees, _nnranks):

@@ -2,20 +2,12 @@ from math import comb
 
 import numpy as np
 import xerus as xe
-from numpy.polynomial.legendre import legval
 from rich.console import Console
 from rich.table import Table
 
-from misc import random_homogenous_polynomial_v2, random_full, max_group_size
+from misc import random_homogenous_polynomial_v2, random_full, max_group_size, monomial_measures, legendre_measures
 from als import ALS
 from riccati import riccati_matrices
-
-def monomial_measures(_points, _degree):
-    return _points.T[...,None]**np.arange(_degree+1)[None,None]
-
-def legendre_measures(_points, _degree):
-    factors = np.sqrt(2*np.arange(_degree+1)+1)
-    return legval(_points, np.diag(factors)).T
 
 
 # ==========
