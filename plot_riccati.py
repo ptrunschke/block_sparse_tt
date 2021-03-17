@@ -217,7 +217,7 @@ if MODE == "PLOT":
             Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5),  #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
             Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5),  #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
         ]
-        ax.legend(legend_elements, ["sparse", "block-sparse TT", "dense TT"], loc='lower left', fontsize=fontsize)
+        ax.legend(legend_elements, ["sparse", "block-sparse TT", "dense TT"], loc='upper right', fontsize=fontsize)
 
         plt.subplots_adjust(**geometry)
         os.makedirs("figures", exist_ok=True)
