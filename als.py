@@ -71,7 +71,8 @@ class ALS(object):
             op = np.einsum('nl,ne,nr -> nler', L[:, block[0]], E[:, block[1]], R[:, block[2]])
             Op_blocks.append(op.reshape(N,-1))
         Op = np.concatenate(Op_blocks, axis=1)
-        Res = np.linalg.solve(Op.T @ Op, Op.T @ self.values)
+        # Res = np.linalg.solve(Op.T @ Op, Op.T @ self.values)
+        Res, *_ = np.linalg.lstsq(Op, self.values, rcond=None)  # When Op.T@Op is singular (less samples then dofs in this component) then lstsq returns the minimal norm solution.
         core[...] = BlockSparseTensor(Res, coreBlocks, core.shape).toarray()
 
         if self.verbosity >= 2:
