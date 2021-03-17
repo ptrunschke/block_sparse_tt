@@ -1,13 +1,18 @@
 import os
 from math import comb
 from itertools import product
-import multiprocessing as mp
 
 import numpy as np
 import xerus as xe
 from rich.console import Console
 from rich.table import Table
-# from tqdm import tqdm
+from tqdm import tqdm
+from joblib import Parallel, delayed
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+from matplotlib.lines import Line2D
+import coloring
+import plotting
 
 from misc import random_homogenous_polynomial_v2, max_group_size, monomial_measures, random_full
 from als import ALS
@@ -26,12 +31,12 @@ order = 8
 # order = 32
 maxGroupSize = order//2  #NOTE: This is the block size needed to represent an arbitrary polynomial.
 
-MODE = ["TEST", "COMPUTE", "PLOT"]
+MODE = ["TEST", "COMPUTE", "PLOT"][2]
 
 degree = 2
 *_, Pi = riccati_matrices(order)
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
-sampleSizes = np.unique(np.geomspace(1e1, 1e4, 20).astype(int))
+sampleSizes = np.unique(np.geomspace(1e1, 1e4, numSteps).astype(int))
 testSampleSize = int(1e5)
 
 
@@ -144,18 +149,9 @@ def compute(_error, _sampleSizes, _numTrials):
         assert z['errors'].shape == (_numTrials, len(_sampleSizes)) and np.all(z['sampleSizes'] == _sampleSizes)
         return z['errors']
     except:
-        print(f"Creating {cacheFile}")
         errors = np.empty((len(_sampleSizes), _numTrials))
-        pool = mp.Pool()
-        # for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
-        #     errors[j] = pool.map_async(_error, (sampleSize,)*_numTrials).get()
-        results = []
-        for sampleSize in _sampleSizes:
-            results.append(pool.map_async(_error, (sampleSize,)*_numTrials))
-        pool.close()
-        pool.join()
-        for j,result in enumerate(results):
-            errors[j] = result.get()
+        for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
+            errors[j] = Parallel(n_jobs=-1)(delayed(_error)(sampleSize) for _ in range(_numTrials))
         errors = errors.T
         np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
     return errors
@@ -231,4 +227,4 @@ if MODE == "PLOT":
     sparse_errors = compute(sparse_error, sampleSizes, numTrials)
     bstt_errors   = compute(bstt_error, sampleSizes, numTrials)
     tt_errors     = compute(tt_error, sampleSizes, numTrials)
-    plot(numSamples, sparse_errors, bstt_errors, tt_errors)
+    plot(sampleSizes, sparse_errors, bstt_errors, tt_errors)
