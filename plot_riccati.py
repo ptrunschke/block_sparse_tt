@@ -163,7 +163,9 @@ if MODE == "TEST":
     error_table.add_column("BSTT", justify="left")
     error_table.add_column("TT", justify="left")
     error_table.add_column("dense", justify="left")
-    error_table.add_row(f"{sparse_error(1000):.2e}", f"{bstt_error(1000):.2e}", f"{tt_error(1000):.2e}", f"")
+    N = int(1e5)  # tt_error == 5.51e-3
+    N = int(1e6)  # tt_error == 5.31e-3
+    error_table.add_row(f"{sparse_error(N):.2e}", f"{bstt_error(N):.2e}", f"{tt_error(N):.2e}", f"")
     console.print()
     console.print(error_table, justify="center")
 elif MODE in ["COMPUTE", "PLOT"]:
