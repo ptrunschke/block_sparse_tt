@@ -4,6 +4,7 @@ import numpy as np
 from numpy.polynomial.legendre import legval
 
 from bstt import Block, BlockSparseTT
+from als import ALS
 import autoPDB
 
 
@@ -193,3 +194,38 @@ def random_full(_univariateDegrees, _ranks):
     ranks = [1] + np.minimum(maxTheoreticalRanks, _ranks).tolist() + [1]
     blocks = [[block[0:ranks[m],0:dimensions[m],0:ranks[m+1]]] for m in range(order)]
     return BlockSparseTT.random(dimensions, ranks[1:-1], blocks)
+
+
+def recover_ml(_measures, _values, _degrees, _maxGroupSize, _maxIter=10, _maxSweeps=100, _targetResidual=1e-12, _verbosity=0):
+    if isinstance(_degrees, int):
+        _degrees = list(range(_degrees+1))
+    maxDegree = max(_degrees)
+    order, numSamples, dimension = _measures.shape
+    assert order == len(_degrees) and (numSamples,) == _values.shape and  dimension == maxDegree+1
+
+    def residual(_bstts):
+        pred = sum(bstt.evaluate(_measures) for bstt in _bstts)
+        return np.linalg.norm(pred -  _values) / np.linalg.norm(_values)
+
+    bstts = [random_homogenous_polynomial_v2([maxDegree]*order, deg, _maxGroupSize) for deg in _degrees]
+    for bstt in bstts:
+        bstt.assume_corePosition(order-1)
+        while bstt.corePosition > 0: bstt.move_core('left')
+        bstt.components[0] *= 1e-3/np.linalg.norm(bstt.components[0])
+    if _verbosity >= 1: print("="*80)
+    res = np.inf
+    for itr in range(_maxIter):
+        if _verbosity >= 1: print(f"Iteration: {itr}")
+        for lvl in range(len(bstts)):
+            lvl_values = _values - sum(bstt.evaluate(_measures) for bstt in bstts[:lvl]+bstts[lvl+1:])
+            solver = ALS(bstts[lvl], _measures, lvl_values, _verbosity=_verbosity-1)
+            solver.maxSweeps = _maxSweeps
+            solver.targetResidual = _targetResidual
+            solver.run()
+            bstts[lvl] = solver.bstt
+        old_res, res = res, residual(bstts)
+        if _verbosity >= 1: print(f"Residual: {res:.2e}")
+        if old_res < res or res < _targetResidual: break
+        if _verbosity >= 1 and itr < _maxIter-1: print("-"*80)
+    # print("="*80)
+    return bstts
