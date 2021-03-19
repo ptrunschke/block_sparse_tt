@@ -24,20 +24,20 @@ from riccati import riccati_matrices
 
 numSteps = 200
 numTrials = 200
-maxSweeps = 1000
+maxSweeps = 2000
 
 order = 8
 # order = 16
 # order = 32
 maxGroupSize = order//2  #NOTE: This is the block size needed to represent an arbitrary polynomial.
 
-MODE = ["TEST", "COMPUTE", "PLOT"][2]
+MODE = ["TEST", "COMPUTE", "PLOT"][1]
 
 degree = 2
 *_, Pi = riccati_matrices(order)
 f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
-sampleSizes = np.unique(np.geomspace(1e1, 1e4, numSteps).astype(int))
-testSampleSize = int(1e5)
+sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
+testSampleSize = int(1e6)
 
 
 def sparse_dofs():
