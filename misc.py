@@ -181,7 +181,7 @@ def legendre_measures(_points, _degree):
 #     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
-def random_full(_univariateDegrees, _rank):
+def random_full(_univariateDegrees, _ranks):
     """
     Create a randomly initialized TT with the given rank.
 
@@ -190,6 +190,6 @@ def random_full(_univariateDegrees, _rank):
     order = len(_univariateDegrees)
     dimensions = [dim+1 for dim in _univariateDegrees]
     maxTheoreticalRanks = np.minimum(np.cumprod(dimensions[:-1]), np.cumprod(dimensions[1:][::-1])[::-1])
-    ranks = [1] + np.minimum(maxTheoreticalRanks, _rank).tolist() + [1]
+    ranks = [1] + np.minimum(maxTheoreticalRanks, _ranks).tolist() + [1]
     blocks = [[block[0:ranks[m],0:dimensions[m],0:ranks[m+1]]] for m in range(order)]
     return BlockSparseTT.random(dimensions, ranks[1:-1], blocks)

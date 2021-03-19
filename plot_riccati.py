@@ -41,15 +41,16 @@ testSampleSize = int(1e6)
 
 
 def sparse_dofs():
-    return comb(degree+order-1, order-1)  # compare to test_homogeneous_ml.py
+    return comb(degree+order-1, order-1)  # all polynomials of degree exactly `degree`
 
 def bstt_dofs():
     bstt = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize)
     return bstt.dofs()
 
+ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
 def tt_dofs():
-    bstt = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize)
-    return sum(bstt.components[pos].size for pos in range(bstt.order))
+    bstt = random_full([degree]*order, ranks)
+    return bstt.dofs()
 
 def dense_dofs():
     return (degree+1)**order
@@ -66,7 +67,7 @@ parameter_table.add_row("Order", f"{order}")
 parameter_table.add_row("Degree", f"{degree}")
 parameter_table.add_row("Maximal group size", f"{maxGroupSize}")
 parameter_table.add_row("Maximal possible group size", f"{max_group_size(order, degree)}")
-parameter_table.add_row("Rank", f"{max(random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks)}")
+parameter_table.add_row("Rank", f"{max(ranks)}")
 parameter_table.add_row("Number of samples", f"{sampleSizes[0]} --> {sampleSizes[-1]}")
 parameter_table.add_row("Maximal number of sweeps", f"{maxSweeps}")
 console.print()
@@ -129,7 +130,7 @@ def bstt_error(N):
 
 
 def tt_error(N):
-    bstt = random_full([degree]*order, degree+1)
+    bstt = random_full([degree]*order, ranks)
     points = 2*np.random.rand(N,order)-1
     measures = monomial_measures(points, degree)
     values = f(points)
