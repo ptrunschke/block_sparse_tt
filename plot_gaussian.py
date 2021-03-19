@@ -14,40 +14,42 @@ from matplotlib.lines import Line2D
 import coloring
 import plotting
 
-from misc import random_homogenous_polynomial_v2, max_group_size, monomial_measures, random_full
+from misc import random_homogenous_polynomial_v2, max_group_size, legendre_measures, random_full, recover_ml
 from als import ALS
 from riccati import riccati_matrices
 
 
-#TODO: Use a change of basis given by the diagonalization of the Riccati equation --> low rank. (Mit Leon reden!)
-
-
-numSteps = 200
-numTrials = 200
+# numSteps = 200
+# numTrials = 200
+numSteps = 20
+numTrials = 20
 maxSweeps = 2000
+maxIter = 100
+# maxSweeps = 200
+# maxIter = 10
 
 order = 8
-# order = 16
-# order = 32
-maxGroupSize = order//2  #NOTE: This is the block size needed to represent an arbitrary polynomial.
+maxGroupSize = 1  #NOTE: This is the block size needed to represent an arbitrary polynomial.
 
 MODE = ["TEST", "COMPUTE", "PLOT"][1]
 
-degree = 2
-*_, Pi = riccati_matrices(order)
-f = lambda xs: np.einsum('ni,ij,nj -> n', xs, Pi, xs)
+degree = 7
+f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
 sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
 testSampleSize = int(1e6)
+# testSampleSize = int(1e4)
 
 
 def sparse_dofs():
-    return comb(degree+order-1, order-1)  # all polynomials of degree exactly `degree`
+    return comb(degree+order, order)  # all polynomials of degree at most `degree`
 
 def bstt_dofs():
-    bstt = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize)
-    return bstt.dofs()
+    bstts = [random_homogenous_polynomial_v2([degree]*order, deg, maxGroupSize) for deg in range(degree+1)]
+    return sum(bstt.dofs() for bstt in bstts)
 
-ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
+##TODO: Is this a sensible choice?
+#ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
+ranks = [1]*(order-1)
 def tt_dofs():
     bstt = random_full([degree]*order, ranks)
     return bstt.dofs()
@@ -58,7 +60,7 @@ def dense_dofs():
 
 console = Console()
 
-console.rule(f"[bold]Riccati")
+console.rule(f"[bold]Gaussian")
 
 parameter_table = Table(title="Parameters", title_style="bold", show_header=False)
 parameter_table.add_column(justify="left")
@@ -92,19 +94,22 @@ console.print(dof_table, justify="center")
 
 
 def multiIndices(_degree, _order):
-    return filter(lambda mI: sum(mI) == _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree exactly `degree`
+    return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
 
 
 test_points = 2*np.random.rand(testSampleSize,order)-1
-test_measures = monomial_measures(test_points, degree)
+test_measures = legendre_measures(test_points, degree)
 test_values = f(test_points)
-def residual(_bstt):
-    return np.linalg.norm(_bstt.evaluate(test_measures) -  test_values) / np.linalg.norm(test_values)
+
+
+def residual(_bstts):
+    bstts_value = sum(bstt.evaluate(test_measures) for bstt in _bstts)
+    return np.linalg.norm(bstts_value -  test_values) / np.linalg.norm(test_values)
 
 
 def sparse_error(N):
     points = 2*np.random.rand(N,order)-1
-    measures = monomial_measures(points, degree)
+    measures = legendre_measures(points, degree)
     values = f(points)
     j = np.arange(order)
     measurement_matrix = np.empty((N,sparse_dofs()))
@@ -117,28 +122,23 @@ def sparse_error(N):
     return np.linalg.norm(measurement_matrix @ coefs -  test_values) / np.linalg.norm(test_values)
 
 
-def bstt_error(N):
-    bstt = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize)
+def bstt_error(N, _verbosity=0):
     points = 2*np.random.rand(N,order)-1
-    measures = monomial_measures(points, degree)
+    measures = legendre_measures(points, degree)
     values = f(points)
-    solver = ALS(bstt, measures, values)
-    solver.maxSweeps = maxSweeps
-    solver.targetResidual = 1e-16
-    solver.run()
-    return residual(solver.bstt)
+    return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
 
 
 def tt_error(N):
-    bstt = random_full([degree]*order, ranks)
+    bstt = random_full([degree]*order, degree+1)
     points = 2*np.random.rand(N,order)-1
-    measures = monomial_measures(points, degree)
+    measures = legendre_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
     solver.targetResidual = 1e-16
     solver.run()
-    return residual(solver.bstt)
+    return residual([solver.bstt])
 
 
 cacheDir = f".cache/M{order}G{maxGroupSize}"
@@ -164,9 +164,8 @@ if MODE == "TEST":
     error_table.add_column("BSTT", justify="left")
     error_table.add_column("TT", justify="left")
     error_table.add_column("dense", justify="left")
-    N = int(1e5)  # tt_error == 5.51e-3
-    N = int(1e6)  # tt_error == 5.31e-3
-    error_table.add_row(f"{sparse_error(N):.2e}", f"{bstt_error(N):.2e}", f"{tt_error(N):.2e}", f"")
+    N = int(1e3)
+    error_table.add_row(f"{sparse_error(N):.2e}", f"{bstt_error(N, _verbosity=1):.2e}", f"{tt_error(N):.2e}", f"")
     console.print()
     console.print(error_table, justify="center")
 elif MODE in ["COMPUTE", "PLOT"]:
