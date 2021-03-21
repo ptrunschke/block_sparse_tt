@@ -141,7 +141,7 @@ def tt_error(N):
     return residual(solver.bstt)
 
 
-cacheDir = f".cache/M{order}G{maxGroupSize}"
+cacheDir = f".cache/riccati_M{order}G{maxGroupSize}"
 os.makedirs(cacheDir, exist_ok=True)
 def compute(_error, _sampleSizes, _numTrials):
     cacheFile = f'{cacheDir}/{_error.__name__}.npz'
@@ -224,7 +224,7 @@ if MODE == "PLOT":
 
         plt.subplots_adjust(**geometry)
         os.makedirs("figures", exist_ok=True)
-        plt.savefig(f"figures/sparse_vs_dense.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
+        plt.savefig(f"figures/riccati.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
 
 
     sparse_errors = compute(sparse_error, sampleSizes, numTrials)
