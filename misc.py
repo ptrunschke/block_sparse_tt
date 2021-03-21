@@ -210,7 +210,7 @@ def recover_ml(_measures, _values, _degrees, _maxGroupSize, _maxIter=10, _maxSwe
         _degrees = list(range(_degrees+1))
     maxDegree = max(_degrees)
     order, numSamples, dimension = _measures.shape
-    assert order == len(_degrees) and (numSamples,) == _values.shape and  dimension == maxDegree+1
+    assert (numSamples,) == _values.shape and  dimension == maxDegree+1, f"NOT ({(numSamples,)} == {_values.shape} and {dimension} == {maxDegree+1})"
 
     def residual(_bstts):
         pred = sum(bstt.evaluate(_measures) for bstt in _bstts)
