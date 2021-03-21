@@ -1,4 +1,4 @@
-from math import comb
+from math import comb, factorial
 
 import numpy as np
 from numpy.polynomial.legendre import legval
@@ -161,7 +161,7 @@ def legendre_measures(_points, _degree):
 
 def hermite_measures(_points, _degree):
     N,M = _points.shape
-    factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(l) for l in range(k)]))
+    factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(l) for l in range(_degree+1)]))
     ret = hermeval(_points, np.diag(factors)).T
     assert ret.shape == (M, N, _degree+1)
     return ret
