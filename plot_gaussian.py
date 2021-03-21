@@ -1,8 +1,9 @@
 import os
-from math import comb
+from math import comb, factorial
 from itertools import product
 
 import numpy as np
+from numpy.polynomial.hermite_e import hermegauss, hermeval
 import xerus as xe
 from rich.console import Console
 from rich.table import Table
@@ -14,9 +15,8 @@ from matplotlib.lines import Line2D
 import coloring
 import plotting
 
-from misc import random_homogenous_polynomial_v2, max_group_size, legendre_measures, random_full, recover_ml
+from misc import random_homogenous_polynomial_v2, max_group_size, hermite_measures, random_full, recover_ml
 from als import ALS
-from riccati import riccati_matrices
 
 
 # numSteps = 200
@@ -28,16 +28,52 @@ maxIter = 100
 # maxSweeps = 200
 # maxIter = 10
 
-order = 8
+order = 6
 maxGroupSize = 1  #NOTE: This is the block size needed to represent an arbitrary polynomial.
 
 MODE = ["TEST", "COMPUTE", "PLOT"][1]
 
 degree = 7
 f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
-sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
-testSampleSize = int(1e6)
-# testSampleSize = int(1e4)
+# sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
+# testSampleSize = int(1e6)
+sampleSizes = np.unique(np.geomspace(1e1, 1e4, numSteps).astype(int))
+testSampleSize = int(1e4)
+
+
+# def gramian(n):
+#     xs, ws = hermegauss(n)
+#     factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(k) for k in range(n)]))
+#     ret = np.empty((n,n))
+#     for i in range(n):
+#         for j in range(i+1):
+#             ret[i,j] = ret[j,i] = ws @ (factors[i]*factors[j]*hermeval(xs, [0]*i+[1]) * hermeval(xs, [0]*j+[1]))
+#     return ret
+# assert np.linalg.norm(np.eye(10) - gramian(10)) < 1e-12
+
+
+def coefficients(f, k, n):
+    xs, ws = hermegauss(n)
+    factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(l) for l in range(k)]))
+    ret = np.empty(k)
+    for l in range(k):
+        ret[l] = ws @ (factors[l] * hermeval(xs, [0]*l+[1]) * f(xs))
+    return ret
+
+
+exp = lambda x: np.exp(-x**2)
+diff = lambda k, n: np.linalg.norm(coefficients(exp, k, n) - coefficients(exp, k, n+1))
+nodes = degree+1
+while diff(degree, nodes) > 1e-14:
+    nodes += 1
+factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(l) for l in range(degree)]))
+coefs = coefficients(exp, degree, nodes) * factors
+
+def f_approx(xs):
+    return np.product(hermeval(xs, coefs), axis=1)
+
+# xs = np.random.randn(testSampleSize, order)
+# print(np.linalg.norm(f(xs) - f_approx(xs))/np.linalg.norm(f(xs)))
 
 
 def sparse_dofs():
@@ -97,9 +133,9 @@ def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
 
 
-test_points = 2*np.random.rand(testSampleSize,order)-1
-test_measures = legendre_measures(test_points, degree)
-test_values = f(test_points)
+test_points = 2*np.random.randn(testSampleSize,order)-1
+test_measures = hermite_measures(test_points, degree)
+test_values = f_approx(test_points)
 
 
 def residual(_bstts):
@@ -108,8 +144,8 @@ def residual(_bstts):
 
 
 def sparse_error(N):
-    points = 2*np.random.rand(N,order)-1
-    measures = legendre_measures(points, degree)
+    points = 2*np.random.randn(N,order)-1
+    measures = hermite_measures(points, degree)
     values = f(points)
     j = np.arange(order)
     measurement_matrix = np.empty((N,sparse_dofs()))
@@ -123,16 +159,16 @@ def sparse_error(N):
 
 
 def bstt_error(N, _verbosity=0):
-    points = 2*np.random.rand(N,order)-1
-    measures = legendre_measures(points, degree)
+    points = 2*np.random.randn(N,order)-1
+    measures = hermite_measures(points, degree)
     values = f(points)
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
 
 
 def tt_error(N):
     bstt = random_full([degree]*order, degree+1)
-    points = 2*np.random.rand(N,order)-1
-    measures = legendre_measures(points, degree)
+    points = 2*np.random.randn(N,order)-1
+    measures = hermite_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
@@ -141,7 +177,7 @@ def tt_error(N):
     return residual([solver.bstt])
 
 
-cacheDir = f".cache/M{order}G{maxGroupSize}"
+cacheDir = f".cache/gaussian_M{order}G{maxGroupSize}"
 os.makedirs(cacheDir, exist_ok=True)
 def compute(_error, _sampleSizes, _numTrials):
     cacheFile = f'{cacheDir}/{_error.__name__}.npz'
@@ -223,7 +259,7 @@ if MODE == "PLOT":
 
         plt.subplots_adjust(**geometry)
         os.makedirs("figures", exist_ok=True)
-        plt.savefig(f"figures/sparse_vs_dense.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
+        plt.savefig(f"figures/gaussian.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
 
 
     sparse_errors = compute(sparse_error, sampleSizes, numTrials)

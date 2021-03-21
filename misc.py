@@ -2,6 +2,7 @@ from math import comb
 
 import numpy as np
 from numpy.polynomial.legendre import legval
+from numpy.polynomial.hermite_e import hermeval
 
 from bstt import Block, BlockSparseTT
 from als import ALS
@@ -154,6 +155,14 @@ def legendre_measures(_points, _degree):
     N,M = _points.shape
     factors = np.sqrt(2*np.arange(_degree+1)+1)
     ret = legval(_points, np.diag(factors)).T
+    assert ret.shape == (M, N, _degree+1)
+    return ret
+
+
+def hermite_measures(_points, _degree):
+    N,M = _points.shape
+    factors = 1/np.sqrt(np.sqrt(2*np.pi)*np.array([factorial(l) for l in range(k)]))
+    ret = hermeval(_points, np.diag(factors)).T
     assert ret.shape == (M, N, _degree+1)
     return ret
 
