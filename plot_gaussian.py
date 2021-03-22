@@ -83,9 +83,12 @@ def bstt_dofs():
     bstts = [random_homogenous_polynomial_v2([degree]*order, deg, maxGroupSize) for deg in range(degree+1)]
     return sum(bstt.dofs() for bstt in bstts)
 
-##TODO: Is this a sensible choice?
-#ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
-ranks = [1]*(order-1)
+minimal_ranks = [1]*(order-1)
+def tt_dofs_minimal_ranks():
+    bstt = random_full([degree]*order, minimal_ranks)
+    return bstt.dofs()
+
+ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
 def tt_dofs():
     bstt = random_full([degree]*order, ranks)
     return bstt.dofs()
@@ -112,11 +115,12 @@ console.print()
 console.print(parameter_table, justify="center")
 
 dof_table = Table(title="Dofs", title_style="bold")
-dof_table.add_column("sparse", justify="left")
-dof_table.add_column("BSTT", justify="left")
-dof_table.add_column("TT", justify="left")
-dof_table.add_column("dense", justify="left")
-dof_table.add_row(f"{sparse_dofs()}", f"{bstt_dofs()}", f"{tt_dofs()}", f"{dense_dofs()}")
+dof_table.add_column("sparse", justify="right")
+dof_table.add_column("BSTT", justify="right")
+dof_table.add_column("TT (rank 1)", justify="right")
+dof_table.add_column(f"TT (rank {max(ranks)})", justify="right")
+dof_table.add_column("dense", justify="right")
+dof_table.add_row(f"{sparse_dofs()}", f"{bstt_dofs()}", f"{tt_dofs_minimal_ranks()}", f"{tt_dofs()}", f"{dense_dofs()}")
 console.print()
 console.print(dof_table, justify="center")
 
@@ -135,12 +139,13 @@ def multiIndices(_degree, _order):
 
 test_points = 2*np.random.randn(testSampleSize,order)-1
 test_measures = hermite_measures(test_points, degree)
-test_values = f_approx(test_points)
+test_values = f(test_points)
+test_values_approx = f_approx(test_points)
 
 
 def residual(_bstts):
-    bstts_value = sum(bstt.evaluate(test_measures) for bstt in _bstts)
-    return np.linalg.norm(bstts_value -  test_values) / np.linalg.norm(test_values)
+    value = sum(bstt.evaluate(test_measures) for bstt in _bstts)
+    return np.linalg.norm(value -  test_values) / np.linalg.norm(test_values), np.linalg.norm(value -  test_values_approx) / np.linalg.norm(test_values_approx)
 
 
 def sparse_error(N):
@@ -155,7 +160,8 @@ def sparse_error(N):
     measurement_matrix = np.empty((testSampleSize,sparse_dofs()))
     for e,mIdx in enumerate(multiIndices(degree, order)):
         measurement_matrix[:,e] = np.product(test_measures[j, :, mIdx], axis=0)
-    return np.linalg.norm(measurement_matrix @ coefs -  test_values) / np.linalg.norm(test_values)
+    value = measurement_matrix @ coefs
+    return np.linalg.norm(value -  test_values) / np.linalg.norm(test_values), np.linalg.norm(value -  test_values_approx) / np.linalg.norm(test_values_approx)
 
 
 def bstt_error(N, _verbosity=0):
@@ -165,8 +171,20 @@ def bstt_error(N, _verbosity=0):
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
 
 
+def tt_error_minimal_ranks(N):
+    bstt = random_full([degree]*order, minimal_ranks)
+    points = 2*np.random.randn(N,order)-1
+    measures = hermite_measures(points, degree)
+    values = f(points)
+    solver = ALS(bstt, measures, values)
+    solver.maxSweeps = maxSweeps
+    solver.targetResidual = 1e-16
+    solver.run()
+    return residual([solver.bstt])
+
+
 def tt_error(N):
-    bstt = random_full([degree]*order, degree+1)
+    bstt = random_full([degree]*order, ranks)
     points = 2*np.random.randn(N,order)-1
     measures = hermite_measures(points, degree)
     values = f(points)
@@ -179,19 +197,20 @@ def tt_error(N):
 
 cacheDir = f".cache/gaussian_M{order}G{maxGroupSize}"
 os.makedirs(cacheDir, exist_ok=True)
-def compute(_error, _sampleSizes, _numTrials):
+def compute(_error, _sampleSizes, _numTrials, _kind='exact'):
+    assert _kind in ('exact', 'approx')
     cacheFile = f'{cacheDir}/{_error.__name__}.npz'
     try:
         z = np.load(cacheFile)
-        assert z['errors'].shape == (_numTrials, len(_sampleSizes)) and np.all(z['sampleSizes'] == _sampleSizes)
-        return z['errors']
+        assert z[f'errors_{_kind}'].shape == (_numTrials, len(_sampleSizes)) and np.all(z['sampleSizes'] == _sampleSizes)
+        return z[f'errors_{_kind}']
     except:
-        errors = np.empty((len(_sampleSizes), _numTrials))
+        errors = np.empty((len(_sampleSizes), _numTrials, 2))
         for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
             errors[j] = Parallel(n_jobs=-1)(delayed(_error)(sampleSize) for _ in range(_numTrials))
         errors = errors.T
-        np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
-    return errors
+        np.savez_compressed(cacheFile, errors_exact=errors[0], errors_approx=errors[1], sampleSizes=_sampleSizes)
+        return errors[int(_kind=='approx')]
 
 
 if MODE == "TEST":
