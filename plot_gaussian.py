@@ -281,7 +281,8 @@ if MODE == "PLOT":
         plt.savefig(f"figures/gaussian.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
 
 
-    sparse_errors = compute(sparse_error, sampleSizes, numTrials)
-    bstt_errors   = compute(bstt_error, sampleSizes, numTrials)
-    tt_errors     = compute(tt_error, sampleSizes, numTrials)
+    sparse_errors           = compute(sparse_error, sampleSizes, numTrials)
+    bstt_errors             = compute(bstt_error, sampleSizes, numTrials)
+    tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials)
+    tt_errors               = compute(tt_error, sampleSizes, numTrials)
     plot(sampleSizes, sparse_errors, bstt_errors, tt_errors)
