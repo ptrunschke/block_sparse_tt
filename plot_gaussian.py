@@ -137,7 +137,7 @@ def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
 
 
-test_points = 2*np.random.randn(testSampleSize,order)-1
+test_points = np.random.randn(testSampleSize,order)
 test_measures = hermite_measures(test_points, degree)
 test_values = f(test_points)
 test_values_approx = f_approx(test_points)
@@ -149,7 +149,7 @@ def residual(_bstts):
 
 
 def sparse_error(N):
-    points = 2*np.random.randn(N,order)-1
+    points = np.random.randn(N,order)
     measures = hermite_measures(points, degree)
     values = f(points)
     j = np.arange(order)
@@ -165,7 +165,7 @@ def sparse_error(N):
 
 
 def bstt_error(N, _verbosity=0):
-    points = 2*np.random.randn(N,order)-1
+    points = np.random.randn(N,order)
     measures = hermite_measures(points, degree)
     values = f(points)
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
@@ -173,7 +173,7 @@ def bstt_error(N, _verbosity=0):
 
 def tt_error_minimal_ranks(N):
     bstt = random_full([degree]*order, minimal_ranks)
-    points = 2*np.random.randn(N,order)-1
+    points = np.random.randn(N,order)
     measures = hermite_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
@@ -185,7 +185,7 @@ def tt_error_minimal_ranks(N):
 
 def tt_error(N):
     bstt = random_full([degree]*order, ranks)
-    points = 2*np.random.randn(N,order)-1
+    points = np.random.randn(N,order)
     measures = hermite_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
@@ -225,10 +225,11 @@ if MODE == "TEST":
     console.print(error_table, justify="center")
 elif MODE in ["COMPUTE", "PLOT"]:
     console.print()
-    sparse_errors           = compute(sparse_error, sampleSizes, numTrials)
-    bstt_errors             = compute(bstt_error, sampleSizes, numTrials)
-    tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials)
-    tt_errors               = compute(tt_error, sampleSizes, numTrials)
+    kind = ['exact', 'approx'][0]
+    sparse_errors           = compute(sparse_error, sampleSizes, numTrials, kind)
+    bstt_errors             = compute(bstt_error, sampleSizes, numTrials, kind)
+    tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials, kind)
+    tt_errors               = compute(tt_error, sampleSizes, numTrials, kind)
 if MODE == "PLOT":
     def plot(xs, ys1, ys2, ys3):
         fontsize = 10
