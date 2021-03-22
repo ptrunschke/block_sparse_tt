@@ -15,7 +15,7 @@ from matplotlib.lines import Line2D
 import coloring
 import plotting
 
-from misc import random_homogenous_polynomial_v2, max_group_size, random_full, recover_ml, legendre_measure  #, hermite_measures
+from misc import random_homogenous_polynomial_v2, max_group_size, random_full, recover_ml, legendre_measures  #, hermite_measures
 from als import ALS
 
 
