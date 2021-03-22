@@ -225,9 +225,10 @@ if MODE == "TEST":
     console.print(error_table, justify="center")
 elif MODE in ["COMPUTE", "PLOT"]:
     console.print()
-    compute(sparse_error, sampleSizes, numTrials)
-    compute(bstt_error, sampleSizes, numTrials)
-    compute(tt_error, sampleSizes, numTrials)
+    sparse_errors           = compute(sparse_error, sampleSizes, numTrials)
+    bstt_errors             = compute(bstt_error, sampleSizes, numTrials)
+    tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials)
+    tt_errors               = compute(tt_error, sampleSizes, numTrials)
 if MODE == "PLOT":
     def plot(xs, ys1, ys2, ys3):
         fontsize = 10
@@ -280,9 +281,4 @@ if MODE == "PLOT":
         os.makedirs("figures", exist_ok=True)
         plt.savefig(f"figures/gaussian.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
 
-
-    sparse_errors           = compute(sparse_error, sampleSizes, numTrials)
-    bstt_errors             = compute(bstt_error, sampleSizes, numTrials)
-    tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials)
-    tt_errors               = compute(tt_error, sampleSizes, numTrials)
     plot(sampleSizes, sparse_errors, bstt_errors, tt_errors)
