@@ -15,14 +15,18 @@ from matplotlib.lines import Line2D
 import coloring
 import plotting
 
-from misc import random_homogenous_polynomial_v2, max_group_size, hermite_measures, random_full, recover_ml
+from misc import random_homogenous_polynomial_v2, max_group_size, random_full, recover_ml, legendre_measures  #, hermite_measures
 from als import ALS
 
 
-# numSteps = 200
-# numTrials = 200
-numSteps = 20
-numTrials = 20
+# N_JOBS = -1
+N_JOBS = 50
+
+
+numSteps = 200
+numTrials = 200
+# numSteps = 20
+# numTrials = 20
 maxSweeps = 2000
 maxIter = 100
 # maxSweeps = 200
@@ -35,10 +39,10 @@ MODE = ["TEST", "COMPUTE", "PLOT"][1]
 
 degree = 7
 f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
-# sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
-# testSampleSize = int(1e6)
-sampleSizes = np.unique(np.geomspace(1e1, 1e4, numSteps).astype(int))
-testSampleSize = int(1e4)
+sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
+testSampleSize = int(1e6)
+# sampleSizes = np.unique(np.geomspace(1e1, 1e5, numSteps).astype(int))
+# testSampleSize = int(1e5)
 
 
 # def gramian(n):
@@ -137,8 +141,11 @@ def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
 
 
-test_points = np.random.randn(testSampleSize,order)
-test_measures = hermite_measures(test_points, degree)
+# test_points = np.random.randn(testSampleSize,order)
+# test_measures = hermite_measures(test_points, degree)
+#NOTE: Reconstruction w.r.t. a Gaussian measure can not work without reweighting!
+test_points = 2*np.random.rand(testSampleSize,order)-1
+test_measures = legendre_measures(test_points, degree)
 test_values = f(test_points)
 test_values_approx = f_approx(test_points)
 
@@ -149,8 +156,11 @@ def residual(_bstts):
 
 
 def sparse_error(N):
-    points = np.random.randn(N,order)
-    measures = hermite_measures(points, degree)
+    # points = np.random.randn(N,order)
+    # measures = hermite_measures(points, degree)
+    #NOTE: Reconstruction w.r.t. a Gaussian measure can not work without reweighting!
+    points = 2*np.random.rand(N,order)-1
+    measures = legendre_measures(points, degree)
     values = f(points)
     j = np.arange(order)
     measurement_matrix = np.empty((N,sparse_dofs()))
@@ -165,16 +175,16 @@ def sparse_error(N):
 
 
 def bstt_error(N, _verbosity=0):
-    points = np.random.randn(N,order)
-    measures = hermite_measures(points, degree)
+    points = 2*np.random.rand(N,order)-1
+    measures = legendre_measures(points, degree)
     values = f(points)
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
 
 
 def tt_error_minimal_ranks(N):
     bstt = random_full([degree]*order, minimal_ranks)
-    points = np.random.randn(N,order)
-    measures = hermite_measures(points, degree)
+    points = 2*np.random.rand(N,order)-1
+    measures = legendre_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
@@ -185,8 +195,8 @@ def tt_error_minimal_ranks(N):
 
 def tt_error(N):
     bstt = random_full([degree]*order, ranks)
-    points = np.random.randn(N,order)
-    measures = hermite_measures(points, degree)
+    points = 2*np.random.rand(N,order)-1
+    measures = legendre_measures(points, degree)
     values = f(points)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
@@ -207,7 +217,7 @@ def compute(_error, _sampleSizes, _numTrials, _kind='exact'):
     except:
         errors = np.empty((len(_sampleSizes), _numTrials, 2))
         for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
-            errors[j] = Parallel(n_jobs=-1)(delayed(_error)(sampleSize) for _ in range(_numTrials))
+            errors[j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
         errors = errors.T
         np.savez_compressed(cacheFile, errors_exact=errors[0], errors_approx=errors[1], sampleSizes=_sampleSizes)
         return errors[int(_kind=='approx')]
