@@ -229,8 +229,9 @@ elif MODE in ["COMPUTE", "PLOT"]:
     sparse_errors           = compute(sparse_error, sampleSizes, numTrials, kind)
     bstt_errors             = compute(bstt_error, sampleSizes, numTrials, kind)
     tt_errors_minimal_ranks = compute(tt_error_minimal_ranks, sampleSizes, numTrials, kind)
-    tt_errors               = compute(tt_error, sampleSizes, numTrials, kind)
+    # tt_errors               = compute(tt_error, sampleSizes, numTrials, kind)
 if MODE == "PLOT":
+    # def plot(xs, ys1, ys2, ys3, ys4):
     def plot(xs, ys1, ys2, ys3):
         fontsize = 10
 
@@ -239,6 +240,7 @@ if MODE == "PLOT":
         C0 = "C0"
         C1 = "C1"
         C2 = "C2"
+        C3 = "C3"
         # C0 = coloring.mix(coloring.bimosred, 80)
         # C1 = "xkcd:black"
         # C2 = "xkcd:dark grey"
@@ -261,6 +263,7 @@ if MODE == "PLOT":
         plotting.plot_quantiles(xs, ys1, qrange=(0.15,0.85), num_quantiles=5, linewidth_fan=1, color=C0, axes=ax, zorder=2)
         plotting.plot_quantiles(xs, ys2, qrange=(0.15,0.85), num_quantiles=5, linewidth_fan=1, color=C1, axes=ax, zorder=2)
         plotting.plot_quantiles(xs, ys3, qrange=(0.15,0.85), num_quantiles=5, linewidth_fan=1, color=C2, axes=ax, zorder=2)
+        # plotting.plot_quantiles(xs, ys4, qrange=(0.15,0.85), num_quantiles=5, linewidth_fan=1, color=C3, axes=ax, zorder=2)
 
         ax.set_yscale('log')
         ax.set_xscale('log')
@@ -282,4 +285,5 @@ if MODE == "PLOT":
         os.makedirs("figures", exist_ok=True)
         plt.savefig(f"figures/gaussian.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
 
-    plot(sampleSizes, sparse_errors, bstt_errors, tt_errors)
+    plot(sampleSizes, sparse_errors, bstt_errors, tt_errors_minimal_ranks)
+    # plot(sampleSizes, sparse_errors, bstt_errors, tt_errors_minimal_ranks, tt_errors)
