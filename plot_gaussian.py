@@ -19,6 +19,10 @@ from misc import random_homogenous_polynomial_v2, max_group_size, random_full, r
 from als import ALS
 
 
+# N_JOBS = -1
+N_JOBS = 50
+
+
 numSteps = 200
 numTrials = 200
 # numSteps = 20
@@ -213,7 +217,7 @@ def compute(_error, _sampleSizes, _numTrials, _kind='exact'):
     except:
         errors = np.empty((len(_sampleSizes), _numTrials, 2))
         for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
-            errors[j] = Parallel(n_jobs=-1)(delayed(_error)(sampleSize) for _ in range(_numTrials))
+            errors[j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
         errors = errors.T
         np.savez_compressed(cacheFile, errors_exact=errors[0], errors_approx=errors[1], sampleSizes=_sampleSizes)
         return errors[int(_kind=='approx')]
