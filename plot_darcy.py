@@ -20,7 +20,7 @@ from als import ALS
 
 
 N_JOBS = -1
-DATAFILE = "..cache/darcy_uniform_integral.npz"
+DATAFILE = ".cache/darcy_uniform_integral.npz"
 
 
 # numSteps = 20
@@ -38,9 +38,11 @@ MODE = ["TEST", "COMPUTE", "PLOT"][1]
 
 degree = 5
 z = np.load(DATAFILE)
-maxSampleSize, order = z['sampels'].shape
+maxSampleSize, order = z['samples'].shape
 assert maxSampleSize/2 > 1e1
 assert z['values'].shape == (maxSampleSize,)
+all_points = z['samples']
+all_values = z['values']
 sampleSizes = np.unique(np.geomspace(1e1, maxSampleSize/2, numSteps).astype(int))
 testSampleSize = maxSampleSize-sampleSizes[-1]
 measures = legendre_measures
@@ -93,10 +95,10 @@ def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
 
 
-test_points = z['samples'][sampleSizes[-1]:]
+test_points = all_points[sampleSizes[-1]:]
 assert len(test_points) == testSampleSize
 test_measures = legendre_measures(test_points, degree)
-test_values = z['values'][sampleSizes[-1]:]
+test_values = all_values[sampleSizes[-1]:]
 
 
 def residual(_bstts):
@@ -106,9 +108,9 @@ def residual(_bstts):
 
 def sparse_error(N):
     assert N <= sampleSizes[-1]
-    points = z['samples'][:N]
+    points = all_points[:N]
     measures = legendre_measures(points, degree)
-    values = z['values'][:N]
+    values = all_values[:N]
     j = np.arange(order)
     measurement_matrix = np.empty((N,sparse_dofs()))
     for e,mIdx in enumerate(multiIndices(degree, order)):
@@ -123,17 +125,17 @@ def sparse_error(N):
 
 def bstt_error(N, _verbosity=0):
     assert N <= sampleSizes[-1]
-    points = z['samples'][:N]
+    points = all_points[:N]
     measures = legendre_measures(points, degree)
-    values = z['values'][:N]
+    values = all_values[:N]
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
 
 
 def tt_error(N):
     assert N <= sampleSizes[-1]
-    points = z['samples'][:N]
+    points = all_points[:N]
     measures = legendre_measures(points, degree)
-    values = z['values'][:N]
+    values = all_values[:N]
     bstt = random_full([degree]*order, ranks)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
@@ -145,7 +147,6 @@ def tt_error(N):
 cacheDir = f".cache/gaussian_M{order}G{maxGroupSize}"
 os.makedirs(cacheDir, exist_ok=True)
 def compute(_error, _sampleSizes, _numTrials):
-    assert _kind in ('exact', 'approx')
     cacheFile = f'{cacheDir}/{_error.__name__}.npz'
     try:
         z = np.load(cacheFile)
@@ -172,10 +173,9 @@ if MODE == "TEST":
     console.print(error_table, justify="center")
 elif MODE in ["COMPUTE", "PLOT"]:
     console.print()
-    kind = ['exact', 'approx'][0]
-    sparse_errors           = compute(sparse_error, sampleSizes, numTrials, kind)
-    bstt_errors             = compute(bstt_error, sampleSizes, numTrials, kind)
-    tt_errors               = compute(tt_error, sampleSizes, numTrials, kind)
+    sparse_errors           = compute(sparse_error, sampleSizes, numTrials)
+    bstt_errors             = compute(bstt_error, sampleSizes, numTrials)
+    tt_errors               = compute(tt_error, sampleSizes, numTrials)
 if MODE == "PLOT":
     def plot(xs, ys1, ys2, ys3):
         fontsize = 10
@@ -214,7 +214,7 @@ if MODE == "PLOT":
         ax.set_yticks(10.0**np.arange(-16,7), minor=True)
         ax.yaxis.set_minor_formatter(ticker.NullFormatter())
         ax.set_yticks(10.0**np.arange(-16,7,3))
-        ax.set_xlabel(r"\# sampels", fontsize=fontsize)
+        ax.set_xlabel(r"\# samples", fontsize=fontsize)
         ax.set_ylabel(r"rel. error", fontsize=fontsize)
 
         legend_elements = [
