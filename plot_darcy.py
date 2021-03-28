@@ -21,6 +21,7 @@ from als import ALS
 
 N_JOBS = -1
 DATAFILE = ".cache/darcy_uniform_integral.npz"
+CACHE_DIRECTORY = f".cache/darcy_M{order}G{maxGroupSize}"
 
 
 # numSteps = 20
@@ -144,10 +145,9 @@ def tt_error(N):
     return residual([solver.bstt])
 
 
-cacheDir = f".cache/gaussian_M{order}G{maxGroupSize}"
-os.makedirs(cacheDir, exist_ok=True)
+os.makedirs(CACHE_DIRECTORY, exist_ok=True)
 def compute(_error, _sampleSizes, _numTrials):
-    cacheFile = f'{cacheDir}/{_error.__name__}.npz'
+    cacheFile = f'{CACHE_DIRECTORY}/{_error.__name__}.npz'
     try:
         z = np.load(cacheFile)
         assert z[f'errors'].shape == (_numTrials, len(_sampleSizes)) and np.all(z['sampleSizes'] == _sampleSizes)
