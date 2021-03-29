@@ -21,7 +21,7 @@ from als import ALS
 
 N_JOBS = -1
 DATAFILE = ".cache/darcy_uniform_integral.npz"
-CACHE_DIRECTORY = f".cache/darcy_M{order}G{maxGroupSize}"
+CACHE_DIRECTORY = ".cache/darcy_M{order}G{maxGroupSize}"
 
 
 # numSteps = 20
@@ -47,6 +47,7 @@ all_values = z['values']
 sampleSizes = np.unique(np.geomspace(1e1, maxSampleSize/2, numSteps).astype(int))
 testSampleSize = maxSampleSize-sampleSizes[-1]
 measures = legendre_measures
+CACHE_DIRECTORY = CACHE_DIRECTORY.format(order=order, maxGroupSize=maxGroupSize)
 
 
 def sparse_dofs():
@@ -67,7 +68,7 @@ def dense_dofs():
 
 console = Console()
 
-console.rule(f"[bold]Gaussian")
+console.rule(f"[bold]Darcy")
 
 parameter_table = Table(title="Parameters", title_style="bold", show_header=False)
 parameter_table.add_column(justify="left")
