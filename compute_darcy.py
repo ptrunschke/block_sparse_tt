@@ -13,8 +13,8 @@ from als import ALS
 
 
 N_JOBS = -1
-DATAFILE = ".cache/darcy_uniform_integral.npz"
 CACHE_DIRECTORY = ".cache/darcy_M{order}G{maxGroupSize}"
+DATAFILE = ".cache/darcy_uniform_integral.npz"
 
 
 # numSteps = 20
@@ -26,9 +26,9 @@ numTrials = 200
 maxSweeps = 2000
 maxIter = 100
 
+degree = 5
 maxGroupSize = 3  #NOTE: This is the block size needed to represent an arbitrary polynomial.
 
-degree = 5
 z = np.load(DATAFILE)
 maxSampleSize, order = z['samples'].shape
 assert maxSampleSize/2 > 1e1
@@ -125,10 +125,10 @@ def bstt_error(N, _verbosity=0):
 
 def tt_error(N):
     assert N <= sampleSizes[-1]
+    bstt = random_full([degree]*order, ranks)
     points = all_points[:N]
     measures = legendre_measures(points, degree)
     values = all_values[:N]
-    bstt = random_full([degree]*order, ranks)
     solver = ALS(bstt, measures, values)
     solver.maxSweeps = maxSweeps
     solver.targetResidual = 1e-16
