@@ -57,8 +57,8 @@ plot("tt_error", ax, C2)
 #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
 legend_elements = [
     (Line2D([0], [0], color=coloring.mix(C0, 80), lw=1.5), "sparse"),
-    # (Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5), "block-sparse TT"),
-    # (Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5), "dense TT")
+    (Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5), "block-sparse TT"),
+    (Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5), "dense TT")
 ]
 ax.legend(*zip(*legend_elements), loc='upper right', fontsize=fontsize)
 

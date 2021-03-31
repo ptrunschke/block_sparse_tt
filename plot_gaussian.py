@@ -82,5 +82,5 @@ ax.set_ylabel(r"rel. error", fontsize=fontsize)
 
 plt.subplots_adjust(**geometry)
 os.makedirs("figures", exist_ok=True)
-problem = os.path.basename(os.path.normpath(DIRECTORY))
-plt.savefig(f"figures/{problem}.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
+# problem = os.path.basename(os.path.normpath(DIRECTORY))
+plt.savefig(f"figures/gaussian.png", dpi=300, facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches="tight") # , transparent=True)
