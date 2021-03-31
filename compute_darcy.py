@@ -35,7 +35,6 @@ assert maxSampleSize/2 > 1e1
 assert z['values'].shape == (maxSampleSize,)
 sampleSizes = np.unique(np.geomspace(1e1, maxSampleSize/2, numSteps).astype(int))
 testSampleSize = maxSampleSize-sampleSizes[-1]
-measures = legendre_measures
 CACHE_DIRECTORY = CACHE_DIRECTORY.format(order=order, maxGroupSize=maxGroupSize)
 
 all_points = z['samples']
@@ -145,12 +144,17 @@ def compute(_error, _sampleSizes, _numTrials):
             print(f"WARNING: errors.shape={z['errors'].shape} != {(_numTrials, len(_sampleSizes))}")
         if np.any(z['sampleSizes'] != _sampleSizes):
             print(f"WARNING: sampleSizes != _sampleSizes")
+        errors = z['errors']
     except:
-        errors = np.empty((len(_sampleSizes), _numTrials))
-        for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
-            errors[j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
-        errors = errors.T
-        np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
+        errors = np.full((_numTrials, len(_sampleSizes)), np.nan)
+    assert errors.shape == (_numTrials, len(_sampleSizes))
+    # Go through all sampleSizes and recompute those errors that contain np.nan
+    for j,sampleSize in tqdm(enumerate(_sampleSizes), desc=_error.__name__, total=len(_sampleSizes)):
+        if np.any(np.isnan(errors[:,j])):
+            if not np.all(np.isnan(errors[:,j])):
+                print("WARNING: Only {np.count_nonzero(np.isnan(errors[:,j]))} errors are NaN.")
+            errors[:,j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
+            np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
 
 
 if __name__ == "__main__":

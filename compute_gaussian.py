@@ -170,10 +170,10 @@ def compute(_error, _sampleSizes, _numTrials):
             if not np.all(np.isnan(errors[:,j])):
                 print("WARNING: Only {np.count_nonzero(np.isnan(errors[:,j]))} errors are NaN.")
             errors[:,j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
-    np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
+            np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     console.print()
     compute(sparse_error, sampleSizes, numTrials)
     compute(bstt_error, sampleSizes, numTrials)
