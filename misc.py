@@ -136,6 +136,38 @@ def random_homogenous_polynomial_v2(_univariateDegrees, _totalDegree, _maxGroupS
     return BlockSparseTT.random(dimensions, ranks, blocks)
 
 
+def random_homogenous_polynomial_sum(_univariateDegrees, _totalDegree, _maxGroupSize):
+    _univariateDegrees = np.asarray(_univariateDegrees, dtype=int)
+    assert isinstance(_totalDegree, int) and _totalDegree >= 0
+    assert _univariateDegrees.ndim == 1 and np.all(_univariateDegrees >= _totalDegree)
+    order = len(_univariateDegrees)
+
+    def MaxSize(r,k):
+        mr, mk = _totalDegree-r, order-k-2
+        return min(comb(k+r,k), comb(mk+mr, mk), _maxGroupSize)
+
+    dimensions = _univariateDegrees+1
+    blocks = [[block[0,l,l] for l in range(_totalDegree+1)]]  # _totalDegree <= _univariateDegrees[0]
+    ranks = []
+    for k in range(1, order-1):
+        mblocks = []
+        leftSizes = [MaxSize(l,k-1) for l in range(_totalDegree+1)]
+        leftSlices = np.cumsum([0] + leftSizes).tolist()
+        rightSizes = [MaxSize(r,k) for r in range(_totalDegree+1)]
+        rightSlices = np.cumsum([0] + rightSizes).tolist()
+        for l in range(_totalDegree+1):
+            for r in range(l, _totalDegree+1):  # If a polynomial of degree l is multiplied with another polynomial the degree must be at least l.
+                m = r-l  # 0 <= m <= _totalDegree-l <= _totalDegree <= _univariateDegrees[m]
+                mblocks.append(block[leftSlices[l]:leftSlices[l+1], m, rightSlices[r]:rightSlices[r+1]])
+        ranks.append(leftSlices[-1])
+        blocks.append(mblocks)
+    ranks.append(_totalDegree+1)
+    blocks.append([block[l,d-l,d] for l in range(d+1) for d in range(_totalDegree+1)])  # l+m == d <--> m == d-l
+    ranks.append(_totalDegree+1)
+    blocks.append([block[d,d,0] for d in range(_totalDegree+1)])
+    return BlockSparseTT.random(dimensions.tolist()+[_totalDegree+1], ranks, blocks)
+
+
 def max_group_size(_order, _degree):
     def MaxSize(r, k):
         mr, mk = _degree-r, _order-k-2
