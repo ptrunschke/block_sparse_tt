@@ -3,3 +3,4 @@ __pycache__
 *.cprof
 .cache
 figures
+*.ipynb_checkpoints
