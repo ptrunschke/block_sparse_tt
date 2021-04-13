@@ -8,7 +8,7 @@ from rich.table import Table
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from misc import random_homogenous_polynomial_v2, max_group_size, random_full, recover_ml, legendre_measures  #, hermite_measures
+from misc import random_homogenous_polynomial_v2, random_homogenous_polynomial_sum, max_group_size, random_full, recover_ml, legendre_measures
 from als import ALS
 
 
@@ -42,7 +42,7 @@ all_values = z['values']
 test_points = all_points[sampleSizes[-1]:]
 assert len(test_points) == testSampleSize
 test_measures = legendre_measures(test_points, degree)
-augmented_test_measures = np.concatenate([test_measures, np.ones((N,degree+1))], axis=0)  # test_measures.shape == (order,N,degree+1)
+augmented_test_measures = np.concatenate([test_measures, np.ones((1,testSampleSize,degree+1))], axis=0)  # test_measures.shape == (order,testSampleSize,degree+1)
 test_values = all_values[sampleSizes[-1]:]
 
 
@@ -130,10 +130,10 @@ def bstt_error(N, _verbosity=0):
 
 def bstt_sum_error(N):
     bstt_sum = random_homogenous_polynomial_sum([degree]*order, degree, maxGroupSize)
-    points = 2*np.random.rand(N,order)-1
-    measures = monomial_measures(points, degree)
-    augmented_measures = np.concatenate([measures, np.ones((N,degree+1))], axis=0)  # measures.shape == (order,N,degree+1)
-    values = f(points)
+    points = all_points[:N]
+    measures = legendre_measures(points, degree)
+    augmented_measures = np.concatenate([measures, np.ones((1,N,degree+1))], axis=0)  # measures.shape == (order,N,degree+1)
+    values = all_values[:N]
     solver = ALS(bstt_sum, augmented_measures, values)
     solver.maxSweeps = maxSweeps
     solver.targetResidual = 1e-16

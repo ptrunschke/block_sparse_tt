@@ -162,7 +162,7 @@ def random_homogenous_polynomial_sum(_univariateDegrees, _totalDegree, _maxGroup
         ranks.append(leftSlices[-1])
         blocks.append(mblocks)
     ranks.append(_totalDegree+1)
-    blocks.append([block[l,d-l,d] for l in range(d+1) for d in range(_totalDegree+1)])  # l+m == d <--> m == d-l
+    blocks.append([block[l,d-l,d] for d in range(_totalDegree+1) for l in range(d+1)])  # l+m == d <--> m == d-l
     ranks.append(_totalDegree+1)
     blocks.append([block[d,d,0] for d in range(_totalDegree+1)])
     return BlockSparseTT.random(dimensions.tolist()+[_totalDegree+1], ranks, blocks)

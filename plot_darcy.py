@@ -31,6 +31,7 @@ BG = "xkcd:white"
 C0 = "C0"
 C1 = "C1"
 C2 = "C2"
+C3 = "C3"
 # BG = coloring.bimosyellow
 # C0 = coloring.mix(coloring.bimosred, 80)
 # C1 = "xkcd:black"
@@ -52,13 +53,15 @@ ax.set_facecolor(BG)
 
 plot("sparse_error", ax, C0)
 plot("bstt_error", ax, C1)
-plot("tt_error", ax, C2)
+plot("bstt_sum_error", ax, C1)
+plot("tt_error", ax, C3)
 
 #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
 legend_elements = [
     (Line2D([0], [0], color=coloring.mix(C0, 80), lw=1.5), "sparse"),
     (Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5), "block-sparse TT"),
-    (Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5), "dense TT")
+    (Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5), "augmented block-sparse TT")
+    (Line2D([0], [0], color=coloring.mix(C3, 80), lw=1.5), "dense TT")
 ]
 legend = ax.legend(*zip(*legend_elements), loc='upper right', fontsize=fontsize)
 legend.set_zorder(10)
