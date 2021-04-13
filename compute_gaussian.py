@@ -13,6 +13,7 @@ from als import ALS
 
 
 N_JOBS = -1
+# MAX_N_JOBS = -1
 CACHE_DIRECTORY = ".cache/gaussian_M{order}G{maxGroupSize}"
 
 
@@ -32,6 +33,8 @@ maxGroupSize = 1  #NOTE: This is the block size needed to represent an arbitrary
 f = lambda xs: np.exp(-np.linalg.norm(xs, axis=1)**2)  #NOTE: This functions gets peakier for larger M!
 sampleSizes = np.unique(np.geomspace(1e1, 1e6, numSteps).astype(int))
 testSampleSize = int(1e6)
+
+# if MAX_N_JOBS < 0: MAX_N_JOBS = psutil.cpu_count()+1-MAX_N_JOBS
 CACHE_DIRECTORY = CACHE_DIRECTORY.format(order=order, maxGroupSize=maxGroupSize)
 
 # test_points = np.random.randn(testSampleSize,order)
@@ -103,17 +106,21 @@ def residual(_bstts):
 def sparse_error(N):
     points = 2*np.random.rand(N,order)-1
     measures = legendre_measures(points, degree)
+    # del points
     values = f(points)
     j = np.arange(order)
     measurement_matrix = np.empty((N,sparse_dofs()))
     for e,mIdx in enumerate(multiIndices(degree, order)):
         measurement_matrix[:,e] = np.product(measures[j, :, mIdx], axis=0)
+    # del measures
     coefs, *_ = np.linalg.lstsq(measurement_matrix, values, rcond=None)
+    # del measurement_matrix
     measurement_matrix = np.empty((testSampleSize,sparse_dofs()))
     for e,mIdx in enumerate(multiIndices(degree, order)):
         measurement_matrix[:,e] = np.product(test_measures[j, :, mIdx], axis=0)
     value = measurement_matrix @ coefs
     return np.linalg.norm(value -  test_values) / np.linalg.norm(test_values)
+# sparse_error.memory_usage = lambda N: max(N, testSampleSize)*sparse_dofs()*test_values.itemsize
 
 
 def bstt_error(N, _verbosity=0):
@@ -121,6 +128,7 @@ def bstt_error(N, _verbosity=0):
     measures = legendre_measures(points, degree)
     values = f(points)
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
+# bstt_error.memory_usage = lambda N: max(N, testSampleSize)*tt_dofs()*test_values.itemsize
 
 
 def tt_error_minimal_ranks(N):
@@ -133,6 +141,7 @@ def tt_error_minimal_ranks(N):
     solver.targetResidual = 1e-16
     solver.run()
     return residual([solver.bstt])
+# tt_error_minimal_ranks.memory_usage = lambda N: max(N, testSampleSize)*tt_dofs_minimal_ranks()*test_values.itemsize
 
 
 def tt_error(N):
@@ -145,6 +154,7 @@ def tt_error(N):
     solver.targetResidual = 1e-16
     solver.run()
     return residual([solver.bstt])
+# tt_error.memory_usage = lambda N: max(N, testSampleSize)*tt_dofs()*test_values.itemsize
 
 
 os.makedirs(CACHE_DIRECTORY, exist_ok=True)
@@ -169,6 +179,9 @@ def compute(_error, _sampleSizes, _numTrials):
         if np.any(np.isnan(errors[:,j])):
             if not np.all(np.isnan(errors[:,j])):
                 print("WARNING: Only {np.count_nonzero(np.isnan(errors[:,j]))} errors are NaN.")
+            # mem = 0.9*psutil.virtual_memory().available  # Use maximally 90% of available memory.
+            # N_JOBS = mem / _error.memory_usage(sampleSize)
+            # N_JOBS = min(N_JOBS, MAX_N_JOBS)
             errors[:,j] = Parallel(n_jobs=N_JOBS)(delayed(_error)(sampleSize) for _ in range(_numTrials))
             np.savez_compressed(cacheFile, errors=errors, sampleSizes=_sampleSizes)
 
