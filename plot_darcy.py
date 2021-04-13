@@ -12,7 +12,7 @@ PROBLEM = "darcy"
 CACHE_DIRECTORY = ".cache/{problem}_M{order}G{maxGroupSize}"
 
 order = 10
-maxGroupSize = 3  #NOTE: This is the block size needed to represent an arbitrary polynomial.
+maxGroupSize = 3
 
 
 CACHE_DIRECTORY = CACHE_DIRECTORY.format(problem=PROBLEM, order=order, maxGroupSize=maxGroupSize)
