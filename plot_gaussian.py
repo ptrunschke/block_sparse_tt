@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 from matplotlib.lines import Line2D
-import coloring
 import plotting
 
 
@@ -41,8 +40,8 @@ C0 = "C0"
 C1 = "C1"
 C2 = "C2"
 C3 = "C3"
-# BG = coloring.bimosyellow
-# C0 = coloring.mix(coloring.bimosred, 80)
+# BG = plotting.bimosyellow
+# C0 = plotting.mix(plotting.bimosred, 80)
 # C1 = "xkcd:black"
 
 fontsize = 10
@@ -55,7 +54,7 @@ geometry = {
     'hspace': 0.25  # the default as defined in rcParams
 }
 figshape = (1,1)
-figsize = coloring.compute_figsize(geometry, figshape, 2)
+figsize = plotting.compute_figsize(geometry, figshape, 2)
 fig,ax = plt.subplots(*figshape, figsize=figsize, dpi=300)
 fig.patch.set_facecolor(BG)
 ax.set_facecolor(BG)
@@ -68,10 +67,10 @@ mask[3] = plot("tt_error", ax, C3)
 
 #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
 legend_elements = np.asarray([
-    (Line2D([0], [0], color=coloring.mix(C0, 80), lw=1.5), "sparse"),
-    (Line2D([0], [0], color=coloring.mix(C1, 80), lw=1.5), "block-sparse TT"),
-    (Line2D([0], [0], color=coloring.mix(C2, 80), lw=1.5), "dense TT (rank 1)"),
-    (Line2D([0], [0], color=coloring.mix(C3, 80), lw=1.5), "dense TT (rank 14)")
+    (Line2D([0], [0], color=plotting.mix(C0, 80), lw=1.5), "sparse"),
+    (Line2D([0], [0], color=plotting.mix(C1, 80), lw=1.5), "block-sparse TT"),
+    (Line2D([0], [0], color=plotting.mix(C2, 80), lw=1.5), "dense TT (rank 1)"),
+    (Line2D([0], [0], color=plotting.mix(C3, 80), lw=1.5), "dense TT (rank 14)")
 ], dtype=object)[mask,:].T
 ax.legend(*legend_elements, loc='upper right', fontsize=fontsize)
 

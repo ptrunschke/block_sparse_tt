@@ -6,7 +6,6 @@ from numpy.polynomial.hermite_e import hermeval
 
 from bstt import Block, BlockSparseTT
 from als import ALS
-import autoPDB
 
 
 class __block(object):
