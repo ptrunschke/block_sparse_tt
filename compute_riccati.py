@@ -87,6 +87,9 @@ def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) == _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree exactly `degree`
 
 
+assert len(list(multiIndices(degree, order))) == sparse_dofs()
+
+
 def residual(_bstt):
     return np.linalg.norm(_bstt.evaluate(test_measures) -  test_values) / np.linalg.norm(test_values)
 
