@@ -8,7 +8,7 @@ from rich.table import Table
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from misc import random_homogenous_polynomial_v2, max_group_size, random_full, recover_ml, legendre_measures  #, hermite_measures
+from misc import random_homogenous_polynomial_v2, random_homogenous_polynomial_sum, max_group_size, random_full, recover_ml, legendre_measures
 from als import ALS
 
 
@@ -42,6 +42,7 @@ all_values = z['values']
 test_points = all_points[sampleSizes[-1]:]
 assert len(test_points) == testSampleSize
 test_measures = legendre_measures(test_points, degree)
+augmented_test_measures = np.concatenate([test_measures, np.ones((1,testSampleSize,degree+1))], axis=0)  # test_measures.shape == (order,testSampleSize,degree+1)
 test_values = all_values[sampleSizes[-1]:]
 
 
@@ -51,6 +52,10 @@ def sparse_dofs():
 def bstt_dofs():
     bstts = [random_homogenous_polynomial_v2([degree]*order, deg, maxGroupSize) for deg in range(degree+1)]
     return sum(bstt.dofs() for bstt in bstts)
+
+def bstt_sum_dofs():
+    bstt_sum = random_homogenous_polynomial_sum([degree]*order, degree, maxGroupSize)
+    return bstt_sum.dofs()
 
 ranks = random_homogenous_polynomial_v2([degree]*order, degree, maxGroupSize).ranks
 def tt_dofs():
@@ -81,15 +86,19 @@ console.print(parameter_table, justify="center")
 dof_table = Table(title="Dofs", title_style="bold")
 dof_table.add_column("sparse", justify="right")
 dof_table.add_column("BSTT", justify="right")
+dof_table.add_column("ABSTT", justify="right")
 dof_table.add_column(f"TT (rank {max(ranks)})", justify="right")
 dof_table.add_column("dense", justify="right")
-dof_table.add_row(f"{sparse_dofs()}", f"{bstt_dofs()}", f"{tt_dofs()}", f"{dense_dofs()}")
+dof_table.add_row(f"{sparse_dofs()}", f"{bstt_dofs()}",f"{bstt_sum_dofs()}", f"{tt_dofs()}", f"{dense_dofs()}")
 console.print()
 console.print(dof_table, justify="center")
 
 
 def multiIndices(_degree, _order):
     return filter(lambda mI: sum(mI) <= _degree, product(range(_degree+1), repeat=_order))  # all polynomials of degree at most `degree`
+
+
+assert len(list(multiIndices(degree, order))) == sparse_dofs()
 
 
 def residual(_bstts):
@@ -120,6 +129,20 @@ def bstt_error(N, _verbosity=0):
     measures = legendre_measures(points, degree)
     values = all_values[:N]
     return residual(recover_ml(measures, values, degree, maxGroupSize, _maxIter=maxIter, _maxSweeps=maxSweeps, _targetResidual=1e-16, _verbosity=_verbosity))
+
+
+def bstt_sum_error(N):
+    bstt_sum = random_homogenous_polynomial_sum([degree]*order, degree, maxGroupSize)
+    points = all_points[:N]
+    measures = legendre_measures(points, degree)
+    augmented_measures = np.concatenate([measures, np.ones((1,N,degree+1))], axis=0)  # measures.shape == (order,N,degree+1)
+    values = all_values[:N]
+    solver = ALS(bstt_sum, augmented_measures, values)
+    solver.maxSweeps = maxSweeps
+    solver.targetResidual = 1e-16
+    solver.run()
+    values = bstt_sum.evaluate(augmented_test_measures)
+    return np.linalg.norm(values -  test_values) / np.linalg.norm(test_values)
 
 
 def tt_error(N):
@@ -161,4 +184,5 @@ if __name__ == "__main__":
     console.print()
     compute(sparse_error, sampleSizes, numTrials)
     compute(bstt_error, sampleSizes, numTrials)
+    compute(bstt_sum_error, sampleSizes, numTrials)
     compute(tt_error, sampleSizes, numTrials)
