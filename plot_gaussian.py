@@ -67,17 +67,18 @@ mask[3] = plot("tt_error", ax, C3)
 
 #NOTE: stacking multiple patches seems to be hard. This is the way seaborn displays such graphs
 legend_elements = np.asarray([
-    (Line2D([0], [0], color=plotting.mix(C0, 80), lw=1.5), "sparse"),
-    (Line2D([0], [0], color=plotting.mix(C1, 80), lw=1.5), "block-sparse TT"),
-    (Line2D([0], [0], color=plotting.mix(C2, 80), lw=1.5), "dense TT (rank 1)"),
-    (Line2D([0], [0], color=plotting.mix(C3, 80), lw=1.5), "dense TT (rank 14)")
+    (Line2D([0], [0], color=plotting.mix(C0, 80), lw=1.5), "$S_7^6$"),
+    (Line2D([0], [0], color=plotting.mix(C1, 80), lw=1.5), "$S_{7,1}^6$"),
+    (Line2D([0], [0], color=plotting.mix(C2, 80), lw=1.5), "$T_1(V_8^6)$"),
+    (Line2D([0], [0], color=plotting.mix(C3, 80), lw=1.5), "$T_8(V_8^6)$")
 ], dtype=object)[mask,:].T
 ax.legend(*legend_elements, loc='upper right', fontsize=fontsize)
 
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.set_xlabel(r"\# samples", fontsize=fontsize)
-ax.set_ylabel(r"rel. error", fontsize=fontsize)
+# ax.set_xlabel(r"\# samples", fontsize=fontsize)
+ax.set_xlabel(r"$M$", fontsize=fontsize)
+ax.set_ylabel(r"relative error", fontsize=fontsize)
 
 plt.subplots_adjust(**geometry)
 os.makedirs("figures", exist_ok=True)
